@@ -372,7 +372,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 16</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 17</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -435,7 +435,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
   </div>
   <div class="quick" id="atalhos"></div>
   <div class="amount out" id="amt">R$ 0,00</div>
-  <label class="nota" id="notaBtn"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#19e3ff" stroke-width="1.7" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg><span id="notaTxt"><b style="color:var(--ink)">Foto da nota fiscal</b> · eu preencho pra você</span><input type="file" accept="image/*" id="notaFile" class="hide"></label>
+  <div class="nota" id="notaBtn"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#19e3ff" stroke-width="1.7" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="3" height="3"/><rect x="13" y="8" width="3" height="3"/><rect x="8" y="13" width="3" height="3"/><path d="M13 13h3v3"/></svg><span id="notaTxt" style="flex:1;min-width:0"><b style="color:var(--ink)">Foto da nota fiscal</b> · eu preencho pra você</span><label class="btn sm" style="flex:none;padding:7px 10px">📷 Câmera<input type="file" accept="image/*" capture="environment" id="notaCam" class="hide"></label><label class="btn sm ghost" style="flex:none;padding:7px 10px">🖼️<input type="file" accept="image/*" id="notaFile" class="hide"></label></div>
   <div id="notaBox"></div>
   <div class="chips" id="catChips"></div>
   <div id="pagBox"></div>
@@ -1577,7 +1577,7 @@ $("#salvar").onclick=()=>{
 $("#excluir").onclick=()=>{ if(!F) return; const lista=F.grp?delGrupo(F.grp):[delTx(F.id)].filter(Boolean); fechaSheet(); render(); toast(lista.length>1?lista.length+" parcelas excluídas":"Excluído","Desfazer",()=>{ devolve(lista); render(); }); };
 $("#cancelar").onclick=fechaSheet; $("#scrim").onclick=()=>{ if($("#form").classList.contains("on")) fechaForm(); else fechaSheet(); };
 $("#aGasto").onclick=()=>abreSheet({});
-$("#aNota").onclick=()=>{ abreSheet({}); $("#notaFile").click(); };
+$("#aNota").onclick=()=>{ abreSheet({}); $("#notaCam").click(); };
 $("#aImp").onclick=()=>{ mostra("mais"); subMais("importar"); };
 $("#fab").onclick=()=>abreSheet({d: mesVis===ym(new Date())?hoje():mesVis+"-01"});
 
@@ -1633,6 +1633,7 @@ async function lerNotaIA(file){
 Exemplo: {"estabelecimento":"Assaí Atacadista","data":"2026-10-31","total":87.4,"categoria":"mercado","itens":"arroz, carne, leite"}`;
   return await sampleFn.json(prompt,{images:[file],modelTier:"quick"});
 }
+$("#notaCam").onchange=e=>$("#notaFile").onchange(e);
 $("#notaFile").onchange=async e=>{
   const file=e.target.files[0]; e.target.value=""; if(!file||!F) return;
   const box=$("#notaBox");
