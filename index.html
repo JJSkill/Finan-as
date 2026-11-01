@@ -373,7 +373,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 19</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 20</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -1674,7 +1674,7 @@ async function preparaIA(){
     sampleFn = await window.claude.use("sample"); if(!sampleFn) return;
     const lim = await sampleFn.limits().catch(()=>null);
     podeImg = !!(lim && lim.images);
-    if(!podeImg) $("#notaTxt").innerHTML='<b style="color:var(--ink)">QR Code da nota</b> · tire foto do QR do cupom';
+    if(!podeImg) $("#notaTxt").innerHTML='<b style="color:var(--ink)">Foto da nota fiscal</b> · leio o QR ou o texto';
   }catch(e){ sampleFn=null; }
 }
 function carregaJsQR(){
@@ -1710,6 +1710,45 @@ function parseNFCe(txt){
   if(f.length>=5 && /^\d{1,2}$/.test(f[3]) && /^\d+([.,]\d+)?$/.test(f[4])){ r.dia=+f[3]; r.valor=parseFloat(f[4].replace(",",".")); }
   return r;
 }
+/* ---------- leitura do texto da nota no aparelho (OCR) ---------- */
+let tessP=null;
+function carregaTess(){ return tessP||(tessP=new Promise((ok,err)=>{ if(window.Tesseract) return ok(window.Tesseract); const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"; sc.onload=()=>ok(window.Tesseract); sc.onerror=()=>{ tessP=null; err(new Error("ocr_load")); }; document.head.appendChild(sc); })); }
+async function lerNotaOCR(img,st){
+  const T=await carregaTess();
+  const W=img.naturalWidth||img.width, H=img.naturalHeight||img.height, k=Math.min(1,1800/Math.max(W,H));
+  const cv=document.createElement("canvas"); cv.width=Math.round(W*k); cv.height=Math.round(H*k);
+  const cx=cv.getContext("2d"); cx.drawImage(img,0,0,cv.width,cv.height);
+  const d=cx.getImageData(0,0,cv.width,cv.height), p=d.data;
+  for(let i=0;i<p.length;i+=4){ let g=.299*p[i]+.587*p[i+1]+.114*p[i+2]; g=Math.max(0,Math.min(255,(g-128)*1.4+128)); p[i]=p[i+1]=p[i+2]=g; }
+  cx.putImageData(d,0,0);
+  const w=await T.createWorker("por",1,{logger:m=>{ if(m.status==="recognizing text"&&st) st("Lendo o texto da nota… "+Math.round(m.progress*100)+"%"); }});
+  try{ const {data}=await w.recognize(cv); return parseCupomTexto(data.text||""); } finally{ w.terminate(); }
+}
+function parseCupomTexto(txt){
+  const L=txt.split(/\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean);
+  const NUM=/(\d{1,3}(?:[.\s]\d{3})*\s?[,.]\s?\d{2})(?!\d)/g;
+  const val=x=>{ x=x.replace(/\s/g,""); const m=x.match(/^(.*)[,.](\d{2})$/); return m?parseFloat(m[1].replace(/[.,]/g,"")+"."+m[2]):NaN; };
+  const ruim=/itens|tribut|imposto|aprox|lei\s*12|troco|desconto|acr[eé]sc|qtd|quant/i;
+  const prios=[/valor\s*a\s*pagar/i,/total\s*a\s*pagar/i,/valor\s*total/i,/total\s*(r\$|geral|da\s*compra)/i,/\btotal\b/i,/valor\s*pago/i,/cart[aã]o|cr[eé]dito|d[eé]bito|dinheiro|\bpix\b/i];
+  let total=null;
+  for(const rx of prios){
+    for(let i=0;i<L.length&&!total;i++){ const l=L[i]; if(!rx.test(l)||ruim.test(l)) continue;
+      const ms=l.match(NUM)||((L[i+1]&&!ruim.test(L[i+1]))?L[i+1].match(NUM):null); if(ms){ const v=val(ms[ms.length-1]); if(v>0&&v<100000) total=v; } }
+    if(total) break;
+  }
+  if(!total){ const vs=(txt.match(NUM)||[]).map(val).filter(v=>v>0&&v<20000); if(vs.length) total=Math.max(...vs); }
+  let data=null; const hj=hoje();
+  for(const m of txt.matchAll(/(\d{2})[\/.\-](\d{2})[\/.\-](\d{4}|\d{2})(?!\d)/g)){ let [_,dd,mm,yy]=m; if(yy.length===2) yy="20"+yy; const iso=yy+"-"+mm+"-"+dd;
+    if(+mm>=1&&+mm<=12&&+dd>=1&&+dd<=31&&+yy>=2020&&iso<=hj){ data=iso; break; } }
+  let loja=null;
+  for(const l of L.slice(0,8)){
+    if(/cnpj|cpf|\bie\b|inscri|cupom|documento|nfc|danfe|extrato|consumidor|eletr[oô]nic|rua |r\. |av\.|avenida|cep|tel|fone|www|http|\d{5,}/i.test(l)) continue;
+    const letras=(l.match(/[A-Za-zÀ-ú]/g)||[]).length; if(letras<4||letras/l.length<.6) continue;
+    loja=l.replace(/[^A-Za-zÀ-ú0-9&' \-]/g,"").replace(/\b(ltda|me|eireli|epp|s\/?a)\b\.?/gi,"").trim().toLowerCase().replace(/(^|\s)\S/g,c=>c.toUpperCase()).slice(0,40); if(loja.length>=3) break; loja=null;
+  }
+  const categoria=adivinhaCat(L.slice(0,6).join(" "),"gasto")||null;
+  return {estabelecimento:loja,data,total,categoria,itens:null,ocr:true};
+}
 async function lerNotaIA(file){
   const cats=S.cats.filter(c=>c.tipo==="gasto").map(c=>c.id+" = "+c.nome).join("; ");
   const prompt=`A imagem é a foto de um cupom fiscal / nota fiscal (NFC-e) brasileira, ou um comprovante de pagamento. Leia e responda SOMENTE com um objeto JSON, sem texto fora dele:
@@ -1735,7 +1774,8 @@ $("#notaFile").onchange=async e=>{
     desenhaSheet();
     st(sampleFn&&podeImg?"QR Code lido ✓ Lendo o valor do cupom…":"QR Code lido ✓");
   }
-  const ia=await iaP;
+  let ia=await iaP;
+  if(!ia && !(qr&&qr.valor)){ st((qr?"QR Code lido ✓ ":"")+"Lendo o texto da nota… (na primeira vez demora um pouco)"); ia=await lerNotaOCR(img,st).catch(()=>({erro:"ocr"})); }
   const sb=$("#scanbox"); if(sb) sb.classList.add("done");
   let msg=[];
   if(ia && !ia.erro && typeof ia==="object"){
@@ -1746,16 +1786,17 @@ $("#notaFile").onchange=async e=>{
     const loja=(ia.estabelecimento||"").toString().slice(0,40);
     if(loja){ F.desc=loja; $("#desc").value=loja; const n=" "+norm(loja)+" "; const lr=S.regras.find(r=>r.tipo==="gasto"&&r.k&&n.includes(r.k)); if(lr) F.cat=lr.cat; else if(!F.cat){ const c=adivinhaCat(loja,"gasto"); if(c) F.cat=c; } }
     F.tipo="gasto"; desenhaSheet();
-    msg.push(`✓ Li a nota${loja?": <b>"+esc(loja)+"</b>":""}${tot>0?" · "+fmt(tot):""}${ia.itens?"<br><span class='muted'>"+esc(ia.itens)+"</span>":""}<br>Confira o valor e toque em <b>Salvar</b>.`);
+    msg.push(ia.ocr&&!(tot>0)?`Li a nota${loja?": <b>"+esc(loja)+"</b>":""}, mas não achei o total. Digite o valor no teclado.`:`✓ Li a nota${loja?": <b>"+esc(loja)+"</b>":""}${tot>0?" · "+fmt(tot):""}${ia.itens?"<br><span class='muted'>"+esc(ia.itens)+"</span>":""}<br>${ia.ocr?"Leitura do papel pode errar: <b>confira o valor, a data e a categoria</b> antes de salvar.":"Confira o valor e toque em <b>Salvar</b>."}`);
   } else if(ia && ia.erro){
     if(ia.erro==="not_granted"||ia.erro==="sampling_disabled"||ia.erro==="images_unavailable"){ podeImg=false; msg.push("A leitura da foto pelo Claude não foi liberada."); }
     else if(ia.erro==="rate_limited") msg.push("Muitas leituras seguidas, tente de novo daqui a pouco.");
+    else if(ia.erro==="ocr") msg.push("Não consegui ler o texto da nota (precisa de internet na primeira vez). Digite o valor no teclado.");
     else if(ia.erro!=="cancelled") msg.push("Não consegui ler o cupom desta vez.");
   }
   if(qr && !(ia&&!ia.erro&&ia.total)){
     msg.push(qr.valor ? `✓ Valor da nota: <b>${fmt(qr.valor)}</b>.` : `QR Code lido, mas o QR das notas emitidas online não traz o valor. ${F.cents?"":"Digite o total do cupom no teclado."}`);
   }
-  if(!qr && !(ia&&!ia.erro)) msg.push("Não achei o QR Code nesta foto. Tente mais perto, com boa luz e o QR inteiro no quadro, ou digite o valor.");
+  if(!qr && !ia) msg.push("Não achei o QR Code nesta foto. Tente mais perto, com boa luz e o QR inteiro no quadro, ou digite o valor.");
   if(F.nota) msg.push(`<a href="${esc(F.nota)}" target="_blank" rel="noopener" style="color:var(--accent)">🧾 Ver a nota completa no site da SEFAZ</a>`);
   st(msg.join("<br>"));
 };
