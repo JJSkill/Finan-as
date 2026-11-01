@@ -345,6 +345,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
+      <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
     <div class="card hide sub" id="s-recorrentes">
@@ -475,16 +476,16 @@ const CATS_PADRAO = [
   {id:"reserva",nome:"Reserva",e:"🐷",tipo:"reserva"},
 ];
 const REGRAS_PADRAO = [
-  ["mercado livre|mercadolivre|shopee|magalu|magazine|americanas|shein|renner|riachuelo|c&a|zara|aliexpress|amazon.com|casas bahia","compras"],
+  ["mercado livre|mercadolivre|shopee|shpp|magalu|magazine|americanas|shein|renner|riachuelo|c&a|zara|aliexpress|amazon|casas bahia|pernambucanas|daiso|lojas americanas|ebanx|moda mundial","compras"],
   ["ifood|rappi|delivery|ze delivery|aiqfome","delivery"],
-  ["netflix|spotify|prime video|amazon prime|disney|hbo|max |globoplay|youtube|deezer|apple.com|icloud|google one|paramount|crunchyroll","assin"],
-  ["supermerc|mercado|atacad|assai|carrefour|pao de acucar|extra hiper|hortifruti|sacolao|acougue|atacarejo|big bompreco|dia %|mercadinho","mercado"],
-  ["uber|99 |99pop|99app|posto|combust|gasolina|ipiranga|shell|petrobras|onibus|metro|bilhete|estacionamento|pedagio|sem parar|veloe|cabify","transporte"],
-  ["restaurante|lanch|lanche|bar |padaria|mcdonald|burger|pizza|cafe|cafeteria|subway|habibs|bob's|bobs|giraffas|sorvet|acai|churras|espetinho","comer"],
-  ["farmacia|drogaria|drogasil|droga raia|raia|pague menos|panvel|medic|hospital|clinica|unimed|hapvida|laborat|dentista|psicolog","saude"],
-  ["aluguel|condominio|iptu|imobiliaria","moradia"],
-  ["energia|enel|cemig|copel|celesc|light|coelba|neoenergia|equatorial|sabesp|saneamento|agua|internet|vivo|claro|tim |oi |net |gas |comgas|ultragaz|conta de luz","contas"],
-  ["cinema|ingresso|show|steam|playstation|xbox|nintendo|sympla|parque|viagem|hotel|airbnb|booking","lazer"],
+  ["netflix|spotify|prime video|amazon prime|disney|hbo max|max.com|globoplay|youtube|deezer|apple.com|icloud|google one|paramount|crunchyroll","assin"],
+  ["supermerc|mercado|atacad|assai|carrefour|pao de acucar|extra hiper|hortifruti|sacolao|acougue|atacarejo|big bompreco|dia %|mercadinho|barbosa|max interlagos|loja do beneficio|hortifrut|sondas|dia brasil","mercado"],
+  ["uber|99 |99pop|99app|posto|combust|gasolina|ipiranga|shell|petrobras|onibus|metro|bilhete|estacionamen|pedagio|sem parar|veloe|cabify|hora park|postoviasul|auto posto","transporte"],
+  ["restaurante|lanch|lanche|bar |padaria|mcdonald|burger|pizza|cafe|cafeteria|subway|habibs|bob's|bobs|giraffas|sorvet|acai|churras|espetinho|espetos|rotisserie|panificadora|boi do campo|docelandia|doces|happy mac|lanchonete|bar e |botequim","comer"],
+  ["farmacia|drogaria|drogasil|droga raia|raia|pague menos|panvel|medic|hospital|clinica|unimed|hapvida|laborat|dentista|psicolog|farma|droga |drogaria|pharma|ultrafarma","saude"],
+  ["aluguel|condominio|iptu|imobiliaria|pjbank","moradia"],
+  ["energia|enel|cemig|copel|celesc|light|coelba|neoenergia|equatorial|sabesp|saneamento|agua|internet|vivo|claro|tim |oi |net |gas |comgas|ultragaz|conta de luz|recarga de celular|recarga","contas"],
+  ["cinema|ingresso|show|steam|playstation|xbox|nintendo|sympla|parque|viagem|hotel|airbnb|booking|fantasias|encanto toy|brinquedo","lazer"],
 ];
 const REGRAS_REC = [
   ["salario|folha|pagamento de salario|holerite|proventos","salario"],
@@ -582,7 +583,7 @@ async function conectaNuvem(){
 /* ---------- lançamentos ---------- */
 function addTx(t){
   const m=t.d.slice(0,7);
-  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
+  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
   txsMes(m).push(tx); marcar("m-"+m); return tx;
 }
 function delTx(id){
@@ -1408,6 +1409,9 @@ async function preparaDownload(){
   }catch(e){}
 }
 
+function desfazLote(l){ let n=0; for(const m in S.txs){ const a=S.txs[m].length; S.txs[m]=S.txs[m].filter(t=>t.lote!==l); if(S.txs[m].length!==a){ n+=a-S.txs[m].length; marcar("m-"+m);} } render(); toast(n+" lançamentos removidos"); }
+function apagaImportados(){ let n=0; for(const m in S.txs){ const a=S.txs[m].length; S.txs[m]=S.txs[m].filter(t=>t.o!=="imp"); if(S.txs[m].length!==a){ n+=a-S.txs[m].length; marcar("m-"+m);} } render(); toast(n+" lançamentos importados apagados"); }
+
 /* ---------- toast ---------- */
 let toastT=null;
 function toast(msg,btn,fn){
@@ -1468,19 +1472,38 @@ function parseOFX(txt){
   }
   return out;
 }
+function parsePicPayCSV(linhas,split,h){
+  const iD=h.indexOf("data"), iT=h.findIndex(x=>x==="tipo"), iO=h.findIndex(x=>/origem|destino/.test(x)), iV=h.findIndex(x=>/valor/.test(x)), iF=h.findIndex(x=>/forma/.test(x));
+  const out=[];
+  for(const l of linhas.slice(1)){
+    const c=split(l); const d=achaData(c[iD]||"",new Date().getFullYear()); const v=parseValor((c[iV]||"").replace(/[−–]/g,"-"));
+    if(!d||isNaN(v)||!v) continue;
+    const tipoTx=norm(c[iT]||""), quem=(c[iO]||"").trim(), forma=norm(c[iF]||"");
+    const it={d,v:Math.abs(v),desc:quem||c[iT]||"",bruto:v,tipoTx:c[iT]||""};
+    if(/guardado|aplicad/.test(tipoTx)&&/cofrinho|caixinha/.test(norm(quem))){ it.tipo="reserva"; it.v=Math.abs(v); it.desc="Guardado no "+quem.replace(/^no /i,""); }
+    else if(/resgatad/.test(tipoTx)){ it.tipo="reserva"; it.v=-Math.abs(v); it.desc="Resgate do "+quem.replace(/^do /i,""); }
+    else if(/fatura/.test(norm(quem+" "+tipoTx))&&v<0){ it.tipo="gasto"; it.desc=/fatura/i.test(quem)?quem:"Fatura "+quem; }
+    else if(/devolvido|estorno/.test(tipoTx)){ it.tipo="gasto"; it.v=-Math.abs(v); it.desc="Pix devolvido · "+quem; it.estorno=true; }
+    else if(v>0){ it.tipo="receita"; }
+    else { it.tipo="gasto"; if(/cartao/.test(forma)) it.noCartao=true; }
+    out.push(it);
+  }
+  return out;
+}
 function parseCSV(txt){
   const linhas=txt.split(/\r?\n/).filter(l=>l.trim()); if(linhas.length<2) return null;
   const sep=(linhas[0].match(/;/g)||[]).length>=(linhas[0].match(/,/g)||[]).length?";":",";
   const split=l=>{const r=[];let c="",q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===sep&&!q){r.push(c);c="";}else c+=ch;}r.push(c);return r.map(x=>x.trim());};
   const h=split(linhas[0]).map(norm);
-  const iD=h.findIndex(x=>/^data|date/.test(x)), iV=h.findIndex(x=>/valor|amount|quantia/.test(x)), iDesc=h.findIndex(x=>/descri|title|hist|estabelec|lancamento|detalhe/.test(x));
+  if(h.some(x=>/origem|destino/.test(x)) && h.includes("tipo")) return parsePicPayCSV(linhas,split,h);
+  const iD=h.findIndex(x=>/^data|date/.test(x)), iV=h.findIndex(x=>/valor|amount|quantia/.test(x)), iDesc=h.findIndex(x=>/descri|title|hist|estabelec|lancamento|detalhe|origem|destino|favorecido|nome/.test(x));
   if(iD<0||iV<0) return null;
   const out=[];
   for(const l of linhas.slice(1)){
     const c=split(l); const d=achaData(c[iD]||"",new Date().getFullYear()); const raw=c[iV]||""; const v=parseValor(raw.replace(/R\$/,""));
     if(!d||isNaN(v)||!v) continue;
     const desc=iDesc>=0?c[iDesc]:"";
-    out.push({d,v:Math.abs(v),tipo:v<0?"gasto":tipoPorTexto(desc,""),desc,bruto:v});
+    out.push({d,v:Math.abs(v),tipo:v<0?(tipoPorTexto(desc,"-")):(/cofrinho|resgat/.test(norm(desc))?"reserva":"receita"),desc,bruto:v});
   }
   return out;
 }
@@ -1536,7 +1559,10 @@ function processaItens(itens){
       const dupF=todasTx().some(t=>t.tipo==="pagfat"&&t.cartao===ccard.id&&Math.abs(t.v-i.v)<.005&&t.ref===ref);
       return {...i,tipo:"pagfat",cat:"fatura",cartao:ccard.id,ref,ok:!dupF,dup:dupF,pf:"💳 Pagamento da fatura "+ccard.nome+" (não conta como gasto)"};
     }
-    const cc=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros")); const dup=exist.has(i.d+"|"+i.v.toFixed(2)+"|"+i.tipo); return {...i,cat:cc,ok:!dup,dup};
+    const cc=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros"));
+    if(i.noCartao && S.cartoes.length){ i.cartao=S.cartoes[0].id; i.pf="💳 Pix pago com o cartão "+S.cartoes[0].nome+" (entra na fatura)"; }
+    const autoDup=(i.tipo==="receita"||i.tipo==="gasto") && (S.txs[i.d.slice(0,7)]||[]).some(t=>(t.o==="auto"||t.o==="rec")&&t.tipo===i.tipo&&Math.abs(t.v-i.v)<1);
+    const dup=exist.has(i.d+"|"+i.v.toFixed(2)+"|"+i.tipo)||autoDup; return {...i,cat:cc,ok:!dup,dup,pf:i.pf||(autoDup?"Já lançado automaticamente (conta fixa / recebimento)":"")};
   });
   desenhaImport();
 }
@@ -1547,7 +1573,7 @@ function desenhaImport(){
     impItens.map((i,k)=>`<div class="imp ${i.dup||i.skip?"dup":""}"><input type="checkbox" data-ik="${k}" ${i.ok?"checked":""} style="width:auto">
       <div class="d"><div>${esc(i.desc||"(sem descrição)")}</div><small class="muted">${i.skip?esc(i.skip):i.pf?esc(i.pf)+" · "+new Date(i.d+"T12:00").toLocaleDateString("pt-BR"):impCard?`💳 ${i.pn?"parcela "+i.pi+"/"+i.pn:"à vista"}${i.cred?" · estorno/crédito":""}`:new Date(i.d+"T12:00").toLocaleDateString("pt-BR")}</small>
       <select data-ic="${k}" class="${i.tipo==="pagfat"||i.skip?"hide":""}">${S.cats.filter(c=>c.tipo===i.tipo).map(c=>`<option value="${c.id}" ${c.id===i.cat?"selected":""}>${c.e} ${esc(c.nome)}</option>`).join("")}</select></div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v ${i.tipo==="receita"||i.v<0?"in":i.tipo==="reserva"?"sv":""}">${i.tipo==="receita"||i.v<0?"+":"-"}${fmt(Math.abs(i.v))}</b>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v ${i.tipo==="reserva"?"sv":i.tipo==="receita"||i.v<0?"in":""}">${i.tipo==="reserva"?(i.v<0?"↩ ":"🐷 "):i.tipo==="receita"||i.v<0?"+":"-"}${fmt(Math.abs(i.v))}</b>
       ${impCard||i.tipo==="pagfat"?"":`<button class="chip" data-it="${k}" style="font-size:12px;padding:4px 8px">${i.tipo==="receita"?"entrada":i.tipo==="reserva"?"reserva":"gasto"} ⇄</button>`}</div></div>`).join("")+
     (impCard?`<div class="kv" style="margin-top:8px"><span>Total selecionado</span><b>${fmt(impItens.filter(i=>i.ok).reduce((a,i)=>a+i.v,0))}</b></div>`:"")+
     `<button class="btn block" style="margin-top:12px" id="impOk" ${n?"":"disabled"}>Importar ${n} lançamento${n===1?"":"s"}</button>`;
@@ -1556,22 +1582,23 @@ function desenhaImport(){
   $$("[data-it]").forEach(b=>b.onclick=()=>{const i=impItens[+b.dataset.it]; i.tipo=i.tipo==="gasto"?"receita":i.tipo==="receita"?"reserva":"gasto"; i.cat=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros")); desenhaImport();});
   $("#impOk").onclick=()=>{
     let n=0;
-    const c=impCard, fut=$("#impFut").checked;
+    const c=impCard, fut=$("#impFut").checked, loteImp=uid();
     const existParc=new Set(todasTx().filter(t=>t.cartao&&t.pn).map(t=>chaveParc(t.cartao,t.desc.replace(/ \(\d+\/\d+\)$/,""),t.pi,t.pn)));
     for(const i of impItens.filter(i=>i.ok)){
       if(i.mudou&&i.desc) aprende(i.desc,i.tipo,i.cat);
       if(c && i.pn){
         const grp=uid();
         for(let k=i.pi;k<=(fut?i.pn:i.pi);k++){ if(k>i.pi && existParc.has(chaveParc(c.id,i.desc,k,i.pn))) continue;
-          addTx({d:addDiaMes(i.d,k-i.pi),v:i.v,tipo:"gasto",cat:i.cat,desc:i.desc+" ("+k+"/"+i.pn+")",o:"imp",cartao:c.id,grp,pi:k,pn:i.pn}); }
-      } else if(i.tipo==="pagfat") addTx({d:i.d,v:i.v,tipo:"pagfat",cat:"fatura",desc:"Fatura "+(cartao(i.cartao)||{}).nome,o:"imp",cartao:i.cartao,ref:i.ref});
-      else addTx({d:i.d,v:i.v,tipo:i.tipo,cat:i.cat,desc:i.desc,o:"imp",cartao:c?c.id:null});
+          addTx({d:addDiaMes(i.d,k-i.pi),v:i.v,tipo:"gasto",cat:i.cat,desc:i.desc+" ("+k+"/"+i.pn+")",o:"imp",lote:loteImp,cartao:c.id,grp,pi:k,pn:i.pn}); }
+      } else if(i.tipo==="pagfat") addTx({d:i.d,v:i.v,tipo:"pagfat",cat:"fatura",desc:"Fatura "+(cartao(i.cartao)||{}).nome,o:"imp",lote:loteImp,cartao:i.cartao,ref:i.ref});
+      else addTx({d:i.d,v:i.v,tipo:i.tipo,cat:i.cat,desc:i.desc,o:"imp",cartao:c?c.id:(i.cartao||null),lote:loteImp});
       n++;
     }
-    impItens=[]; $("#impPrev").innerHTML=""; $("#impTxt").value=""; toast(n+" lançamentos importados ✓");
+    impItens=[]; $("#impPrev").innerHTML=""; $("#impTxt").value=""; toast(n+" lançamentos importados ✓","Desfazer",()=>{ desfazLote(loteImp); });
     if(c){ cartaoSel=c.id; fatSel=null; mostra("cartoes"); } else mostra("extrato");
   };
 }
+{ let armado=false; $("#impLimpar").onclick=()=>{ if(!armado){ armado=true; $("#impLimpar").textContent="Toque de novo para apagar os importados"; setTimeout(()=>{armado=false;$("#impLimpar").textContent="🧹 Apagar tudo que já foi importado";},4000); return; } armado=false; $("#impLimpar").textContent="🧹 Apagar tudo que já foi importado"; apagaImportados(); }; }
 $("#impLer").onclick=()=>processaImport($("#impTxt").value);
 $("#impFoto").onchange=async e=>{
   const files=[...e.target.files]; e.target.value=""; if(!files.length||!sampleFn) return;
