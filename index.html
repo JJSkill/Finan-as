@@ -76,6 +76,13 @@ header .mes button:active{background:var(--track)}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg);filter:drop-shadow(0 0 8px rgba(25,227,255,.45))}
 .ring .c{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:11px;color:var(--ink2);line-height:1.15}
 .ring .c b{display:block;font-size:20px;color:var(--ink)}
+.saldos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.sbox{display:block;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);position:relative;overflow:hidden}
+.sbox::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,var(--sc,var(--accent)),transparent)}
+.sbox .k{font-size:11px;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em}
+.sbox .v{font-family:Orbitron,sans-serif;font-weight:700;font-size:17px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbox .v.neg{color:#ff4f86}
+.sbox .s{font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.35}
 .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
 .stat{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:10px}
 .stat .k{font-size:11px;color:var(--ink2);text-transform:uppercase;letter-spacing:.08em}
@@ -268,6 +275,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
       <input id="sGuard" inputmode="decimal" placeholder="Ex.: 0">
       <button class="btn block" style="margin-top:14px" id="sOk">Montar meu plano</button>
     </div>
+    <div class="saldos" id="saldos"></div>
     <div class="card hero" id="hero"></div>
     <div class="acts">
       <button class="act" id="aGasto"><span>＋</span>Gasto</button>
@@ -729,7 +737,45 @@ function irHTML(m){
     ${i.proj>33000?`<div class="alert warn">📋 <div><b>Você provavelmente vai precisar entregar a declaração</b> em ${+y+1}: rendimentos tributáveis acima de cerca de R$ 35 mil no ano obrigam a declarar (confira o limite oficial quando a Receita publicar as regras).</div></div>`:""}
     <p class="small muted" style="margin:8px 0 0">Conta como tributável: salário, aluguel recebido e renda extra. Rateio de contas e Pix de reembolso não são renda. Isto é um aviso para você se organizar, não substitui um contador.</p>`;
 }
+/* ---------- saldos do início ---------- */
+function efeitoConta(t){
+  if(t.tipo==="receita") return t.v;
+  if(t.tipo==="gasto") return ehCompraCartao(t)?0:-t.v;
+  if(t.tipo==="reserva"||t.tipo==="pagfat") return -t.v;
+  return 0;
+}
+function saldoConta(){
+  const b=S.cfg.saldo; if(!b) return null;
+  const ign=new Set(b.ign||[]), h=hoje();
+  return todasTx().filter(t=>t.d>=b.d&&t.d<=h&&!ign.has(t.id)).reduce((a,t)=>a+efeitoConta(t),b.v);
+}
+function formSaldo(){
+  const s=saldoConta();
+  abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">SALDO DA CONTA</h3>
+    <p class="muted small" style="margin:0">Abra o PicPay e digite o saldo que aparece agora. A partir daí eu vou somando o que entra e tirando o que sai (Pix, débito, boletos, fatura paga e o que vai pro cofrinho). Compras no cartão de crédito não mexem no saldo até você pagar a fatura.</p>
+    <label class="f">Saldo atual no PicPay</label><input id="fsV" inputmode="decimal" value="${s!=null?s.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$">
+    <div class="grid2" style="margin-top:14px"><button class="btn ghost" id="fsX">Cancelar</button><button class="btn" id="fsS">Salvar</button></div>`);
+  $("#fsX").onclick=fechaForm;
+  $("#fsS").onclick=()=>{ const raw=$("#fsV").value.trim(); if(!raw) return; const v=parseValor(raw.replace(/^-\s*/,""))*(/^-/.test(raw)?-1:1); if(isNaN(v)) return;
+    const d=hoje(); S.cfg.saldo={v,d,ign:todasTx().filter(t=>t.d===d).map(t=>t.id)}; marcar("cfg"); fechaForm(); render(); toast("Saldo atualizado ✓"); };
+}
+function renderSaldos(){
+  const s=saldoConta();
+  const cs=S.cartoes.filter(c=>c.limite>0);
+  const disp=cs.reduce((a,c)=>a+(c.limite-usadoCartao(c)),0), lim=cs.reduce((a,c)=>a+c.limite,0);
+  const conta=`<button class="sbox" id="sbConta" style="--sc:var(--good)"><div class="k">💰 Saldo da conta</div>`+
+    (s==null?`<div class="v" style="font-size:14px">Informar</div><div class="s">Toque e digite o saldo do PicPay</div>`
+            :`<div class="v ${s<0?"neg":""}">${fmt(s)}</div><div class="s">Atualizado em ${dataBR(S.cfg.saldo.d)} · toque p/ ajustar</div>`)+`</button>`;
+  const cart=`<button class="sbox" id="sbCartao" style="--sc:var(--accent)"><div class="k">💳 Cartão disponível</div>`+
+    (!S.cartoes.length?`<div class="v" style="font-size:14px">Cadastrar</div><div class="s">Adicione seu cartão</div>`
+     :!cs.length?`<div class="v" style="font-size:14px">Sem limite</div><div class="s">Informe o limite do cartão</div>`
+     :`<div class="v ${disp<0?"neg":""}">${fmt(disp)}</div><div class="s">${cs.length>1?cs.map(c=>esc(c.nome)+" "+fmt0(c.limite-usadoCartao(c))).join(" · "):"de "+fmt0(lim)+" de limite"}</div>`)+`</button>`;
+  $("#saldos").innerHTML=conta+cart;
+  $("#sbConta").onclick=formSaldo;
+  $("#sbCartao").onclick=()=>mostra("cartoes");
+}
 function renderInicio(){
+  renderSaldos();
   $("#setup").classList.toggle("hide",!!S.cfg.feito);
   const m=mesVis, r=resumoMes(m), atual=m===ym(new Date());
   const renda=rendaMes(m), metaRes=S.cfg.metaMes||0;
