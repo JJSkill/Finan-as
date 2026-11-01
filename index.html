@@ -371,7 +371,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 13</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 14</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -662,7 +662,9 @@ function fatInfo(c,key){
   return {key,txs,total,pago,resta,...dt,st};
 }
 const ST_NOME={aberta:"Aberta",fechada:"Fechada",paga:"Paga ✓",atrasada:"Atrasada",vazia:"Sem compras"};
-function usadoCartao(c){ const all=todasTx(); return all.filter(t=>t.cartao===c.id&&t.tipo==="gasto").reduce((a,t)=>a+t.v,0) - all.filter(t=>t.cartao===c.id&&t.tipo==="pagfat").reduce((a,t)=>a+t.v,0); }
+function usadoCartao(c){ // soma do que falta pagar em cada fatura (pagamento de fatura sem compras no app não conta)
+  const keys=[...new Set(todasTx().filter(t=>t.cartao===c.id&&t.tipo==="gasto").map(t=>fatKey(c,dC(t))))];
+  return keys.reduce((a,k)=>{ const f=fatInfo(c,k); return a+Math.max(0,f.total-f.pago); },0); }
 function faturaAPagar(c){ // a fechada mais antiga não paga, senão a aberta atual
   const keys=[...new Set(todasTx().filter(t=>t.cartao===c.id&&t.tipo==="gasto").map(t=>fatKey(c,dC(t))))].sort();
   const atual=fatKey(c,hoje());
