@@ -292,7 +292,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
       <button class="act" id="aImp"><span>⇩</span>Extrato</button>
     </div>
     <div id="alerts"></div>
-    <div class="card hide" id="recCard"><h3>Recebimentos do mês</h3><div id="recHome"></div></div>
+    <div class="card hide" id="recCard"><h3 id="recTit">Recebimentos do mês</h3><p class="small muted" id="recSub" style="margin:-4px 0 4px"></p><div id="recHome"></div></div>
     <div class="card" id="pendCard"><h3>Contas fixas deste mês</h3><div id="pend"></div></div>
     <div class="card hide" id="fatCard"><h3>Faturas do cartão</h3><div id="fatHome"></div></div>
     <div class="card"><h3>Onde o dinheiro foi</h3><div id="topCats"></div></div>
@@ -899,7 +899,8 @@ function renderInicio(){
     else if(dias>=2) a+=`<div class="alert warn">⏰ <div><b>Faz ${dias} dias sem lançar.</b> Abra o extrato do PicPay e lance o que faltou, ou cole o extrato em Mais › Importar.</div></div>`;
     for(const c of S.cats.filter(c=>c.tipo==="gasto"&&c.lim>0)){
       const g=r.porCat[c.id]||0, p=g/c.lim;
-      if(p>=1) a+=`<div class="alert bad">⛔ <div><b>${c.e} ${esc(c.nome)}: estourou</b> ${fmt(g)} de ${fmt(c.lim)} (${fmt(g-c.lim)} acima).</div></div>`;
+      if(p>=1 && g-c.lim<0.5) a+=`<div class="alert warn">⚠️ <div><b>${c.e} ${esc(c.nome)}: chegou no limite</b> de ${fmt(c.lim)}. Qualquer gasto a mais aqui passa do planejado.</div></div>`;
+      else if(p>=1) a+=`<div class="alert bad">⛔ <div><b>${c.e} ${esc(c.nome)}: estourou</b> ${fmt(g)} de ${fmt(c.lim)} (${fmt(g-c.lim)} acima).</div></div>`;
       else if(p>=.8) a+=`<div class="alert warn">⚠️ <div><b>${c.e} ${esc(c.nome)}: ${Math.round(p*100)}% do limite.</b> Resta ${fmt(c.lim-g)} pro mês.</div></div>`;
     }
     if(metaRes && r.guard<metaRes && new Date().getDate()>= (S.cfg.dia||1) && renda>0)
@@ -916,8 +917,11 @@ function renderInicio(){
   // recebimentos
   const rr=atual?recsReceita().slice().sort((a,b)=>a.dia-b.dia):[];
   $("#recCard").classList.toggle("hide",!rr.length);
-  $("#recHome").innerHTML=rr.map(x=>{ const ok=(x.ult||"")>=m; return `<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>dia ${x.dia} · ${fmt(x.v)}</small></div>${ok?`<span class="st paga">Recebido</span>`:x.auto?`<span class="st aberta">Dia ${x.dia}</span>`:`<button class="btn sm" data-ok="${x.id}">Recebi</button>`}</div>`; }).join("")
-    + (rr.length?`<div class="kv" style="margin-top:6px"><span>Previsto no mês</span><b>${fmt(rr.reduce((a,x)=>a+x.v,0))}</b></div>`:"");
+  { const nm=MESES[+m.slice(5)-1], pm=addMes(m,-1), recPrev=(S.txs[pm]||[]).filter(t=>t.tipo==="receita").reduce((a,t)=>a+t.v,0);
+    $("#recTit").textContent="Previsão de "+nm;
+    $("#recSub").innerHTML="Seus recebimentos fixos que ainda vão cair em "+nm+"."+(recPrev?` O que você recebeu em ${MESES[+pm.slice(5)-1]} (${fmt(recPrev)}) fica em ${MESES[+pm.slice(5)-1]}: toque em ‹ no topo para ver.`:""); }
+  $("#recHome").innerHTML=rr.map(x=>{ const ok=(x.ult||"")>=m; return `<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>dia ${x.dia} · ${fmt(x.v)}</small></div>${ok?`<span class="st paga">Recebido</span>`:x.auto?`<span class="st aberta">Previsto dia ${x.dia}</span>`:`<button class="btn sm" data-ok="${x.id}">Recebi</button>`}</div>`; }).join("")
+    + (rr.length?`<div class="kv" style="margin-top:6px"><span>Total previsto</span><b>${fmt(rr.reduce((a,x)=>a+x.v,0))}</b></div>`:"");
   if(atual){ const ir=infoIR(m); if(ir.faixa!=="isento") a+=`<div class="alert ${ir.faixa==="parcial"?"warn":"bad"}">🧾 <div><b>Renda tributável do mês: ${fmt(ir.v)}.</b> Passou de R$ 5 mil: ${ir.faixa==="parcial"?"pode ter imposto de renda (isenção parcial até R$ 7.350)":"tem imposto de renda pela tabela normal"}. Veja em Plano.</div></div>`;
     if(ir.alug && new Date().getDate()>=20) a+=`<div class="alert info">🏘️ <div><b>Lembrete do carnê-leão:</b> o imposto sobre aluguel recebido de pessoa física deste mês vence no último dia útil do mês que vem.</div></div>`; }
   $("#alerts").innerHTML=a;
