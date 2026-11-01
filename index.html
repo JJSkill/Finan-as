@@ -310,6 +310,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
   <!-- PLANO -->
   <section class="view" id="v-plano">
     <div class="card" id="planoResumo"></div>
+    <div class="card"><h3>Saldo da conta mês a mês</h3><div id="saldoMeses"></div></div>
     <div class="card"><h3>Gastos dos últimos 6 meses</h3><div id="hist"></div></div>
     <div class="card"><h3>Imposto de renda</h3><div id="irBox"></div></div>
     <div class="card"><h3>Limite por categoria</h3>
@@ -844,20 +845,43 @@ function movConta(t){ // [data, efeito] no saldo da conta
   if(t.tipo==="gasto"&&t.pago) return [t.pago.d, (t.pago.de==="conta"||t.pago.de==="reserva")?-t.v:0];
   return [t.d,efeitoConta(t)];
 }
-function saldoConta(){
-  const b=S.cfg.saldo; if(!b) return null;
-  const ign=new Set(b.ign||[]), h=hoje();
-  return todasTx().reduce((a,t)=>{ const [d,e]=movConta(t); return (d>=b.d&&d<=h&&!ign.has(t.id))?a+e:a; },b.v);
+function movsConta(){ return todasTx().map(t=>{ const [d,e]=movConta(t); return {d,e,id:t.id}; }).filter(x=>x.e); }
+function saldoInicioDia(D,movs){ // saldo no começo do dia D
+  const b=S.cfg.saldo; if(!b) return null; movs=movs||movsConta();
+  const ign=new Set(b.ign||[]); let B0=b.v;
+  for(const x of movs){ if(x.d===b.d&&ign.has(x.id)) B0-=x.e; }
+  for(const x of movs){ if(x.d<D&&x.d>=b.d) B0+=x.e; else if(x.d>=D&&x.d<b.d) B0-=x.e; }
+  return B0;
+}
+function saldoConta(){ if(!S.cfg.saldo) return null; return saldoInicioDia(ymd(new Date(Date.now()+864e5))); }
+function saldoMeses(){
+  if(!S.cfg.saldo) return [];
+  const movs=movsConta(), h=hoje(), atual=ym(new Date());
+  let m0=[S.cfg.saldo.d,...movs.map(x=>x.d)].sort()[0].slice(0,7); const out=[];
+  for(let m=m0; m<=atual; m=addMes(m,1)){
+    const ini=saldoInicioDia(m+"-01",movs), fimD=m===atual?ymd(new Date(Date.now()+864e5)):addMes(m,1)+"-01";
+    const l=movs.filter(x=>x.d.slice(0,7)===m&&x.d<=h);
+    out.push({m,ini,ent:l.filter(x=>x.e>0).reduce((a,x)=>a+x.e,0),sai:-l.filter(x=>x.e<0).reduce((a,x)=>a+x.e,0),fim:saldoInicioDia(fimD,movs),atual:m===atual});
+  }
+  return out;
+}
+function saldoMesesHTML(){
+  const l=saldoMeses();
+  if(!l.length) return `<p class="muted small" style="margin:0">Informe o saldo da conta (no Início, toque em <b>Saldo da conta</b>) para eu montar o saldo de cada mês.</p>`;
+  return l.slice().reverse().map(x=>`<div class="pend" style="align-items:flex-start"><div class="t"><b style="text-transform:capitalize">${MESES[+x.m.slice(5)-1]} ${x.m.slice(0,4)}</b><small>começou com ${fmt(x.ini)} · <span style="color:var(--good)">+${fmt(x.ent)}</span> · <span style="color:var(--accent2,#ff7aa8)">−${fmt(x.sai)}</span></small></div><div style="text-align:right"><small class="muted" style="display:block;font-size:11px">${x.atual?"até hoje":"sobrou"}</small><b class="${x.fim<0?"neg":""}" style="${x.fim<0?"color:var(--bad)":""}">${fmt(x.fim)}</b></div></div>`).join("")
+    +`<p class="small muted" style="margin:8px 0 0">Só a conta PicPay: compras no cartão entram quando a fatura é paga. Cofrinho conta como saída (guardou) ou entrada (resgatou).</p>`;
 }
 function formSaldo(){
   const s=saldoConta();
   abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">SALDO DA CONTA</h3>
     <p class="muted small" style="margin:0">Abra o PicPay e digite o saldo que aparece agora. A partir daí eu vou somando o que entra e tirando o que sai (Pix, débito, boletos, fatura paga e o que vai pro cofrinho). Compras no cartão de crédito não mexem no saldo até você pagar a fatura.</p>
-    <label class="f">Saldo atual no PicPay</label><input id="fsV" inputmode="decimal" value="${s!=null?s.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$">
+    <label class="f">Saldo no PicPay</label><input id="fsV" inputmode="decimal" value="${s!=null?s.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$">
+    <label class="f">Esse saldo é de quando?</label><input id="fsD" type="date" value="${hoje()}" max="${hoje()}">
+    <p class="small muted" style="margin:6px 0 0">Hoje = o saldo de agora. Outro dia = o saldo no <b>começo</b> desse dia, antes de qualquer lançamento dele (bom para começar do primeiro dia do extrato e bater mês a mês).</p>
     <div class="grid2" style="margin-top:14px"><button class="btn ghost" id="fsX">Cancelar</button><button class="btn" id="fsS">Salvar</button></div>`);
   $("#fsX").onclick=fechaForm;
   $("#fsS").onclick=()=>{ const raw=$("#fsV").value.trim(); if(!raw) return; const v=parseValor(raw.replace(/^-\s*/,""))*(/^-/.test(raw)?-1:1); if(isNaN(v)) return;
-    const d=hoje(); S.cfg.saldo={v,d,ign:todasTx().filter(t=>t.d===d).map(t=>t.id)}; marcar("cfg"); fechaForm(); render(); toast("Saldo atualizado ✓"); };
+    const d=$("#fsD").value||hoje(); S.cfg.saldo={v,d,ign:d===hoje()?todasTx().filter(t=>t.d===d).map(t=>t.id):[]}; marcar("cfg"); fechaForm(); render(); toast("Saldo atualizado ✓"); };
 }
 function renderSaldos(){
   const s=saldoConta();
@@ -865,7 +889,7 @@ function renderSaldos(){
   const disp=cs.reduce((a,c)=>a+(c.limite-usadoCartao(c)),0), lim=cs.reduce((a,c)=>a+c.limite,0);
   const conta=`<button class="sbox" id="sbConta" style="--sc:var(--good)"><div class="k">💰 Saldo da conta</div>`+
     (s==null?`<div class="v" style="font-size:14px">Informar</div><div class="s">Toque e digite o saldo do PicPay</div>`
-            :`<div class="v ${s<0?"neg":""}">${fmt(s)}</div><div class="s">Atualizado em ${dataBR(S.cfg.saldo.d)} · toque p/ ajustar</div>`)+`</button>`;
+            :`<div class="v ${s<0?"neg":""}">${fmt(s)}</div><div class="s">${S.cfg.saldo.d===hoje()?"Ajustado hoje":"Desde "+dataBR(S.cfg.saldo.d)} · toque p/ ajustar</div>`)+`</button>`;
   const cart=`<button class="sbox" id="sbCartao" style="--sc:var(--accent)"><div class="k">💳 Cartão disponível</div>`+
     (!S.cartoes.length?`<div class="v" style="font-size:14px">Cadastrar</div><div class="s">Adicione seu cartão</div>`
      :!cs.length?`<div class="v" style="font-size:14px">Sem limite</div><div class="s">Informe o limite do cartão</div>`
@@ -1015,6 +1039,7 @@ function renderExtrato(){
 $("#busca").oninput=renderExtrato;
 
 function renderPlano(){
+  $("#saldoMeses").innerHTML=saldoMesesHTML();
   const r=resumoMes(mesVis), renda=rendaMes(mesVis);
   const ess=S.cats.filter(c=>c.g==="essencial"), liv=S.cats.filter(c=>c.g==="livre");
   const gEss=ess.reduce((a,c)=>a+(r.porCat[c.id]||0),0), gLiv=r.sai-gEss;
