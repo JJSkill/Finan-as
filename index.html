@@ -1552,7 +1552,7 @@ function processaItens(itens){
       const dup = i.pn ? existParc.has(chaveParc(c.id,i.desc,i.pi,i.pn)) : exist.has(i.d+"|"+i.v.toFixed(2)+"|gasto") || todasTx().some(t=>t.cartao===c.id&&Math.abs(t.v-i.v)<.005&&fatKey(c,t.d)===sel&&chaveDesc(t.desc)===chaveDesc(i.desc));
       return {...i,cat:catc,ok:!dup&&!i.skip,dup};
     }
-    if(i.tipo!=="receita" && /pagamento (de |da )?fatura|fatura (do )?cartao|pagto fatura|pgto fatura|pagamento cartao de credito/.test(norm(i.desc))){
+    if(i.tipo!=="receita" && (/pagamento (de |da )?fatura|fatura (do )?cartao|pagto fatura|pgto fatura|pagamento cartao de credito|^fatura /.test(norm(i.desc))||/fatura/.test(norm(i.tipoTx||"")))){
       const ccard=S.cartoes.find(k=>norm(i.desc).includes(norm(k.nome)))||S.cartoes[0];
       if(!ccard) return {...i,tipo:"gasto",cat:"outros",ok:false,skip:"Pagamento de fatura: cadastre o cartão para eu controlar (ignorado para não contar o gasto duas vezes)"};
       const ym0=i.d.slice(0,7), ref=+i.d.slice(8)<=ccard.vence+10?ym0:addMes(ym0,1);
