@@ -76,6 +76,15 @@ header .mes button:active{background:var(--track)}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg);filter:drop-shadow(0 0 8px rgba(25,227,255,.45))}
 .ring .c{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-size:11px;color:var(--ink2);line-height:1.15}
 .ring .c b{display:block;font-size:20px;color:var(--ink)}
+.nbadge{position:absolute;top:0;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font:700 10px/16px "Space Grotesk",sans-serif;font-style:normal;letter-spacing:0;box-shadow:0 0 10px rgba(255,79,134,.7)}
+.st.vencida{color:var(--bad);border-color:rgba(255,79,134,.45);background:var(--bad-soft)}
+.st.hoje{color:var(--warn);border-color:rgba(255,195,77,.4);background:var(--warn-soft)}
+.st.avencer{color:var(--accent);border-color:rgba(25,227,255,.4);background:var(--accent-soft)}
+.cbill{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);width:100%;text-align:left;color:inherit;font:inherit}
+.cbill:last-child{border-bottom:0}
+.cbill .ic{font-size:22px;width:30px;text-align:center}
+.cbill .t{flex:1;min-width:0}.cbill .t small{display:block;color:var(--ink3);margin-top:2px}
+.cbill .v{font-weight:700;white-space:nowrap}
 .saldos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
 .sbox{display:block;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);position:relative;overflow:hidden}
 .sbox::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,var(--sc,var(--accent)),transparent)}
@@ -124,7 +133,7 @@ header .mes button:active{background:var(--track)}
 .v.in{color:var(--good);text-shadow:0 0 10px rgba(45,255,176,.35)} .v.sv{color:var(--save)}
 .day{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin:18px 4px 0;text-transform:uppercase;letter-spacing:.12em}
 nav.tabs{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:10;max-width:540px;margin:0 auto;background:rgba(10,13,32,.78);border:1px solid var(--line);border-radius:22px;display:flex;justify-content:space-around;padding:6px 4px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 10px 40px rgba(0,0,0,.6)}
-nav.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--ink3);padding:5px 0;letter-spacing:.06em;text-transform:uppercase;border-radius:14px;transition:color .2s}
+nav.tabs button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--ink3);padding:5px 0;letter-spacing:.06em;text-transform:uppercase;border-radius:14px;transition:color .2s}
 nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs button.on{color:var(--accent)}
 nav.tabs button.on svg{filter:drop-shadow(0 0 6px rgba(25,227,255,.8))}
@@ -310,6 +319,14 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
     </div>
   </section>
 
+  <!-- CONTAS A PAGAR -->
+  <section class="view" id="v-contas">
+    <div class="card hero" id="contasHero"></div>
+    <div class="card"><h3>Em aberto</h3><div id="contasAbertas"></div><button class="btn ghost block" id="novaConta" style="margin-top:10px">＋ Nova conta a pagar</button></div>
+    <div class="card hide" id="contasFixasCard"><h3>Contas fixas que ainda não chegaram</h3><div id="contasFixas"></div></div>
+    <div class="card"><h3>Pagas recentemente</h3><div id="contasPagas"></div></div>
+  </section>
+
   <!-- CARTÕES -->
   <section class="view" id="v-cartoes">
     <div class="cards" id="cardsWrap"></div>
@@ -400,6 +417,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
   <button data-v="inicio" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Início</button>
   <button data-v="extrato"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>Extrato</button>
   <button data-v="plano"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Plano</button>
+  <button data-v="contas"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Contas<i class="nbadge hide" id="contasBadge"></i></button>
   <button data-v="cartoes"><svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6 15h4"/></svg>Cartões</button>
   <button data-v="reserva"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Investir</button>
 </nav>
@@ -593,7 +611,7 @@ async function conectaNuvem(){
 /* ---------- lançamentos ---------- */
 function addTx(t){
   const m=t.d.slice(0,7);
-  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
+  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote","aberto","pago","dc"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
   txsMes(m).push(tx); marcar("m-"+m); return tx;
 }
 function delTx(id){
@@ -601,10 +619,11 @@ function delTx(id){
 }
 const modoFatura=()=>(S.cfg.cartaoMes||"fatura")==="fatura";
 const ehCompraCartao=t=>t.tipo==="gasto"&&t.cartao&&cartao(t.cartao);
+const dC=t=>t.dc||t.d;
 function cartaoNoMesCompra(m){ return (S.txs[m]||[]).filter(ehCompraCartao).reduce((a,t)=>a+t.v,0); }
 function resumoMes(m){
   let l=S.txs[m]||[];
-  if(modoFatura()){ l=l.filter(t=>!ehCompraCartao(t)).concat(todasTx().filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),t.d)===m)); }
+  if(modoFatura()){ l=l.filter(t=>!ehCompraCartao(t)).concat(todasTx().filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),dC(t))===m)); }
   let ent=0,sai=0,guard=0; const porCat={};
   for(const t of l){
     if(t.tipo==="receita") ent+=t.v;
@@ -634,7 +653,7 @@ function fatDatas(c,key){
 }
 function fatInfo(c,key){
   const all=todasTx();
-  const txs=all.filter(t=>t.cartao===c.id&&t.tipo==="gasto"&&fatKey(c,t.d)===key).sort((a,b)=>b.d.localeCompare(a.d));
+  const txs=all.filter(t=>t.cartao===c.id&&t.tipo==="gasto"&&fatKey(c,dC(t))===key).sort((a,b)=>b.d.localeCompare(a.d));
   const total=txs.reduce((a,t)=>a+t.v,0), pago=all.filter(t=>t.tipo==="pagfat"&&t.cartao===c.id&&t.ref===key).reduce((a,t)=>a+t.v,0);
   const dt=fatDatas(c,key), h=hoje(), resta=Math.max(0,Math.round((total-pago)*100)/100);
   let st = total<=0.004 ? "vazia" : resta<=0.004 ? "paga" : h<dt.fecha ? "aberta" : h>dt.vence ? "atrasada" : "fechada";
@@ -643,7 +662,7 @@ function fatInfo(c,key){
 const ST_NOME={aberta:"Aberta",fechada:"Fechada",paga:"Paga ✓",atrasada:"Atrasada",vazia:"Sem compras"};
 function usadoCartao(c){ const all=todasTx(); return all.filter(t=>t.cartao===c.id&&t.tipo==="gasto").reduce((a,t)=>a+t.v,0) - all.filter(t=>t.cartao===c.id&&t.tipo==="pagfat").reduce((a,t)=>a+t.v,0); }
 function faturaAPagar(c){ // a fechada mais antiga não paga, senão a aberta atual
-  const keys=[...new Set(todasTx().filter(t=>t.cartao===c.id&&t.tipo==="gasto").map(t=>fatKey(c,t.d)))].sort();
+  const keys=[...new Set(todasTx().filter(t=>t.cartao===c.id&&t.tipo==="gasto").map(t=>fatKey(c,dC(t))))].sort();
   const atual=fatKey(c,hoje());
   for(const k of keys){ if(k>atual) break; const f=fatInfo(c,k); if(f.st==="fechada"||f.st==="atrasada") return f; }
   return fatInfo(c,atual);
@@ -701,6 +720,8 @@ function render(){
   if(viewAtual==="plano") renderPlano();
   if(viewAtual==="reserva") renderReserva();
   if(viewAtual==="cartoes") renderCartoes();
+  if(viewAtual==="contas") renderContas();
+  badgeContas();
 }
 function recsReceita(){ return S.rec.filter(r=>r.tipo==="receita"); }
 function rendaBase(){ const s=recsReceita().reduce((a,r)=>a+r.v,0); return s||S.cfg.renda||0; }
@@ -737,6 +758,65 @@ function irHTML(m){
     ${i.proj>33000?`<div class="alert warn">📋 <div><b>Você provavelmente vai precisar entregar a declaração</b> em ${+y+1}: rendimentos tributáveis acima de cerca de R$ 35 mil no ano obrigam a declarar (confira o limite oficial quando a Receita publicar as regras).</div></div>`:""}
     <p class="small muted" style="margin:8px 0 0">Conta como tributável: salário, aluguel recebido e renda extra. Rateio de contas e Pix de reembolso não são renda. Isto é um aviso para você se organizar, não substitui um contador.</p>`;
 }
+/* ---------- contas a pagar ---------- */
+function achaTx(id){ for(const m in S.txs){ const t=S.txs[m].find(x=>x.id===id); if(t) return t; } return null; }
+const DE_NOME={conta:"Conta PicPay",reserva:"Cofrinho / reserva",dinheiro:"Dinheiro",outro:"Outra conta"};
+function nomeDe(p){ if(!p) return ""; if(p.de==="cartao"){ const c=cartao(p.cartao); return "💳 "+(c?c.nome:"cartão"); } return DE_NOME[p.de]||p.de; }
+function contasAbertas(){ return todasTx().filter(t=>t.tipo==="gasto"&&t.aberto).sort((a,b)=>a.d.localeCompare(b.d)); }
+function diasAte(d){ return Math.round((new Date(d+"T12:00")-new Date(hoje()+"T12:00"))/864e5); }
+function stConta(t){ const n=diasAte(t.d); return n<0?["vencida","venceu há "+(-n)+" dia"+(n<-1?"s":"")]:n===0?["hoje","vence hoje"]:["avencer",n===1?"vence amanhã":"vence em "+n+" dias"]; }
+function badgeContas(){ const n=contasAbertas().filter(t=>diasAte(t.d)<=3).length, b=$("#contasBadge"); if(!b) return; b.textContent=n; b.classList.toggle("hide",!n); }
+function marcaPago(t,p){
+  delete t.aberto; t.pago={d:p.d,de:p.de};
+  if(p.v>0) t.v=Math.round(p.v*100)/100;
+  if(p.de==="cartao"){ t.pago.cartao=p.cartao; t.cartao=p.cartao; t.dc=p.d; } else { delete t.cartao; delete t.dc; }
+  if(p.de==="reserva"){ const r=addTx({d:p.d,v:-t.v,tipo:"reserva",cat:"reserva",desc:"Resgate p/ pagar "+(t.desc||cat(t.cat).nome),ref:t.id}); t.pago.res=r.id; }
+  marcar("m-"+t.d.slice(0,7));
+}
+function reabre(t){
+  if(t.pago&&t.pago.res) delTx(t.pago.res);
+  if(t.pago&&t.pago.de==="cartao"){ delete t.cartao; delete t.dc; }
+  delete t.pago; t.aberto=true; marcar("m-"+t.d.slice(0,7));
+}
+function formPagarConta(t){
+  const opts=[["conta","💸 Conta PicPay (saldo)"],...S.cartoes.map(c=>["cartao:"+c.id,"💳 Cartão "+c.nome]),["reserva","🐷 Cofrinho / reserva"],["dinheiro","💵 Dinheiro"],["outro","🏦 Outra conta / banco"]];
+  abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">MARCAR COMO PAGA</h3>
+    <p class="muted small" style="margin:0">${cat(t.cat).e} ${esc(t.desc||cat(t.cat).nome)} · venc. ${dataBR(t.d)} · ${fmt(t.v)}</p>
+    <label class="f">Valor pago (mude se teve juros ou desconto)</label><input id="fcpV" inputmode="decimal" value="${t.v.toLocaleString("pt-BR",{minimumFractionDigits:2})}">
+    <label class="f">Dia em que pagou</label><input id="fcpD" type="date" value="${hoje()}">
+    <label class="f">De onde saiu o dinheiro</label><select id="fcpDe">${opts.map(([v,n])=>`<option value="${v}">${n}</option>`).join("")}</select>
+    <p class="small muted" id="fcpInfo"></p>
+    <div class="grid2"><button class="btn ghost" id="fcpX">Cancelar</button><button class="btn" id="fcpS">Confirmar</button></div>`);
+  const info=()=>{ const v=$("#fcpDe").value; $("#fcpInfo").textContent=v==="conta"?"Sai do saldo da conta no dia do pagamento.":v.startsWith("cartao")?"Entra na fatura do cartão e usa o limite. Não mexe no saldo da conta agora.":v==="reserva"?"Eu registro um resgate do cofrinho com o mesmo valor.":"Não mexe no saldo da conta PicPay."; };
+  $("#fcpDe").onchange=info; info();
+  $("#fcpX").onclick=fechaForm;
+  $("#fcpS").onclick=()=>{ const v=parseValor($("#fcpV").value); if(!(v>0)) return; const de=$("#fcpDe").value;
+    marcaPago(t,{d:$("#fcpD").value||hoje(),v,de:de.startsWith("cartao:")?"cartao":de,cartao:de.startsWith("cartao:")?de.slice(7):null});
+    fechaForm(); render(); toast("Conta paga ✓","Desfazer",()=>{ reabre(t); render(); }); };
+}
+function billHTML(t,pago){
+  const c=cat(t.cat);
+  if(pago) return `<div class="cbill"><span class="ic">${c.e}</span><div class="t">${esc(t.desc||c.nome)} <span class="st paga">paga</span><small>pago ${dataBR(t.pago.d)} · ${esc(nomeDe(t.pago))} · venc. ${dataBR(t.d)}</small></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v">${fmt(t.v)}</b><button class="btn sm ghost" data-reabre="${t.id}">Reabrir</button></div></div>`;
+  const [st,txt]=stConta(t);
+  return `<div class="cbill"><span class="ic">${c.e}</span><button class="t" data-edc="${t.id}" style="text-align:left;color:inherit">${esc(t.desc||c.nome)} <span class="st ${st}">${txt}</span><small>vencimento ${new Date(t.d+"T12:00").toLocaleDateString("pt-BR")} · ${esc(c.nome)}</small></button><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v">${fmt(t.v)}</b><button class="btn sm" data-pagc="${t.id}">Paguei</button></div></div>`;
+}
+function renderContas(){
+  const ab=contasAbertas(), tot=ab.reduce((a,t)=>a+t.v,0), venc=ab.filter(t=>diasAte(t.d)<0), sem=ab.filter(t=>{const n=diasAte(t.d);return n>=0&&n<=7;});
+  $("#contasHero").innerHTML=`<div class="label">Total em aberto</div><div class="big ${venc.length?"neg":""}">${fmt(tot)}</div><div class="sub">${ab.length?`${ab.length} conta${ab.length>1?"s":""} para pagar${venc.length?` · <b style="color:var(--bad)">${venc.length} vencida${venc.length>1?"s":""} (${fmt(venc.reduce((a,t)=>a+t.v,0))})</b>`:""}${sem.length?` · ${sem.length} vence${sem.length>1?"m":""} nos próximos 7 dias`:""}`:"Nenhuma conta em aberto. 🎉"}</div>
+    ${S.cfg.saldo&&ab.length?`<div class="sub" style="margin-top:8px">💰 Saldo da conta hoje: ${fmt(saldoConta())} · ${saldoConta()>=tot?"dá para pagar tudo":"faltam "+fmt(tot-saldoConta())+" para pagar tudo"}</div>`:""}`;
+  $("#contasAbertas").innerHTML=ab.length?ab.map(t=>billHTML(t)).join(""):`<p class="muted small" style="margin:0">Quando lançar uma conta (luz, água, boleto) que ainda não pagou, marque <b>⏳ Em aberto</b>. Ela aparece aqui até você marcar como paga.</p>`;
+  const fx=pendentes().filter(x=>x.tipo==="gasto");
+  $("#contasFixasCard").classList.toggle("hide",!fx.length);
+  $("#contasFixas").innerHTML=fx.map(x=>`<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>todo dia ${x.dia} · ${fmt(x.v)}</small></div><button class="btn sm ghost" data-fxab="${x.id}">Chegou</button></div>`).join("");
+  const lim=addDiaMes(hoje(),-2);
+  const pagas=todasTx().filter(t=>t.tipo==="gasto"&&t.pago&&t.pago.d>=lim).sort((a,b)=>b.pago.d.localeCompare(a.pago.d));
+  $("#contasPagas").innerHTML=pagas.length?pagas.map(t=>billHTML(t,true)).join(""):`<p class="muted small" style="margin:0">As contas que você marcar como pagas ficam aqui por 2 meses.</p>`;
+  $$("[data-pagc]").forEach(b=>b.onclick=()=>formPagarConta(achaTx(b.dataset.pagc)));
+  $$("[data-edc]").forEach(b=>b.onclick=()=>abreSheet(achaTx(b.dataset.edc)));
+  $$("[data-reabre]").forEach(b=>b.onclick=()=>{ reabre(achaTx(b.dataset.reabre)); render(); toast("Conta voltou para em aberto"); });
+  $$("[data-fxab]").forEach(b=>b.onclick=()=>{ const x=S.rec.find(r=>r.id===b.dataset.fxab), m=ym(new Date()); addTx({d:m+"-"+pad(Math.min(x.dia,diasNoMes(m))),v:x.v,tipo:"gasto",cat:x.cat,desc:x.desc,o:"rec",aberto:true}); x.ult=m; marcar("cfg"); render(); toast("Conta adicionada em aberto ✓"); });
+}
+$("#novaConta").onclick=()=>abreSheet({aberto:true});
 /* ---------- saldos do início ---------- */
 function efeitoConta(t){
   if(t.tipo==="receita") return t.v;
@@ -744,10 +824,15 @@ function efeitoConta(t){
   if(t.tipo==="reserva"||t.tipo==="pagfat") return -t.v;
   return 0;
 }
+function movConta(t){ // [data, efeito] no saldo da conta
+  if(t.tipo==="gasto"&&t.aberto) return [t.d,0];
+  if(t.tipo==="gasto"&&t.pago) return [t.pago.d, (t.pago.de==="conta"||t.pago.de==="reserva")?-t.v:0];
+  return [t.d,efeitoConta(t)];
+}
 function saldoConta(){
   const b=S.cfg.saldo; if(!b) return null;
   const ign=new Set(b.ign||[]), h=hoje();
-  return todasTx().filter(t=>t.d>=b.d&&t.d<=h&&!ign.has(t.id)).reduce((a,t)=>a+efeitoConta(t),b.v);
+  return todasTx().reduce((a,t)=>{ const [d,e]=movConta(t); return (d>=b.d&&d<=h&&!ign.has(t.id))?a+e:a; },b.v);
 }
 function formSaldo(){
   const s=saldoConta();
@@ -796,8 +881,8 @@ function renderInicio(){
     const sobra=r.ent-r.sai-r.guard;
     h=`<div class="label">${m<ym(new Date())?"Resultado do mês":"Mês futuro"}</div><div class="big ${sobra<0?"neg":""}">${fmt(sobra)}</div><div class="sub">Entradas menos gastos e o que foi guardado.</div>`;
   }
-  if(modoFatura()&&S.cartoes.length){ const futuras=(S.txs[m]||[]).filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),t.d)>m); const v=futuras.reduce((a,t)=>a+t.v,0);
-    if(v) { const ks=[...new Set(futuras.map(t=>fatKey(cartao(t.cartao),t.d)))].sort().map(k=>MESES[+k.slice(5)-1]); h+=`<div class="sub" style="margin-top:8px">💳 Você comprou ${fmt(v)} no cartão em ${MESES[+m.slice(5)-1]}. Isso entra na fatura de ${ks.join(" e ")} e conta no mês em que ela vence.</div>`; } }
+  if(modoFatura()&&S.cartoes.length){ const futuras=(S.txs[m]||[]).filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),dC(t))>m); const v=futuras.reduce((a,t)=>a+t.v,0);
+    if(v) { const ks=[...new Set(futuras.map(t=>fatKey(cartao(t.cartao),dC(t))))].sort().map(k=>MESES[+k.slice(5)-1]); h+=`<div class="sub" style="margin-top:8px">💳 Você comprou ${fmt(v)} no cartão em ${MESES[+m.slice(5)-1]}. Isso entra na fatura de ${ks.join(" e ")} e conta no mês em que ela vence.</div>`; } }
   h+=`<div class="row3">
     <div class="stat"><div class="k"><span class="dot" style="background:var(--good)"></span>Entrou</div><div class="v">${fmt0(r.ent)}</div></div>
     <div class="stat"><div class="k"><span class="dot" style="background:var(--accent)"></span>Gastou</div><div class="v">${fmt0(r.sai)}</div></div>
@@ -820,7 +905,11 @@ function renderInicio(){
     if(metaRes && r.guard<metaRes && new Date().getDate()>= (S.cfg.dia||1) && renda>0)
       a+=`<div class="alert info">🐷 <div><b>Pague-se primeiro:</b> faltam ${fmt(metaRes-r.guard)} para a reserva deste mês. Guarde logo, antes de gastar. <button class="btn sm" style="margin-top:6px" id="btnGuardar">Guardar agora</button></div></div>`;
   }
+  if(atual){ const ab=contasAbertas(), vv=ab.filter(t=>diasAte(t.d)<0), pr=ab.filter(t=>{const n=diasAte(t.d);return n>=0&&n<=3;});
+    if(vv.length) a=`<div class="alert bad">🧾 <div><b>${vv.length} conta${vv.length>1?"s":""} vencida${vv.length>1?"s":""}: ${fmt(vv.reduce((s,t)=>s+t.v,0))}.</b> ${vv.slice(0,3).map(t=>esc(t.desc||cat(t.cat).nome)).join(", ")}. <a href="#" data-irc style="color:inherit">Ver em Contas</a></div></div>`+a;
+    if(pr.length) a=`<div class="alert warn">🧾 <div><b>${pr.map(t=>esc(t.desc||cat(t.cat).nome)+" "+stConta(t)[1]).join(", ")}.</b> Total ${fmt(pr.reduce((s,t)=>s+t.v,0))}. <a href="#" data-irc style="color:inherit">Ver em Contas</a></div></div>`+a; }
   $("#alerts").innerHTML=a;
+  $$("[data-irc]").forEach(x=>x.onclick=e=>{e.preventDefault();mostra("contas");});
   const bg=$("#btnGuardar"); if(bg) bg.onclick=()=>abreSheet({tipo:"reserva",v:metaRes-r.guard});
 
   // pendentes
@@ -885,7 +974,7 @@ function metaReserva(){
 function txHTML(t){
   if(t.tipo==="pagfat"){ const cc=cartao(t.cartao); return `<button class="tx" data-tx="${t.id}"><span class="ic">💳</span><span class="t"><div>${esc(t.desc||"Pagamento de fatura")}</div><small>fatura ${cc?esc(cc.nome):""} · não conta como gasto</small></span><span class="v">${fmt(t.v)}</span></button>`; }
   const c=cat(t.cat), cls=t.tipo==="receita"?"in":t.tipo==="reserva"?"sv":"", cc=t.cartao?cartao(t.cartao):null, mt=t.meta?S.metas.find(m=>m.id===t.meta):null;
-  const info=[t.tipo==="reserva"?(mt?mt.e+" "+mt.nome:"Reserva"):c.nome, cc?"💳 "+cc.nome+(t.pn>1?" "+t.pi+"/"+t.pn:""):"", t.o==="auto"?"automático":t.o==="imp"?"importado":""].filter(Boolean).map(esc).join(" · ");
+  const info=[t.tipo==="reserva"?(mt?mt.e+" "+mt.nome:"Reserva"):c.nome, cc?"💳 "+cc.nome+(t.pn>1?" "+t.pi+"/"+t.pn:""):"", t.aberto?"⏳ em aberto":"", t.pago?"✅ pago "+dataBR(t.pago.d)+(t.pago.de!=="cartao"?" · "+nomeDe(t.pago):""):"", t.o==="auto"?"automático":t.o==="imp"?"importado":""].filter(Boolean).map(esc).join(" · ");
   return `<button class="tx" data-tx="${t.id}"><span class="ic">${t.tipo==="reserva"&&mt?mt.e:c.e}</span><span class="t"><div>${esc(t.desc||c.nome)}</div><small>${info}</small></span><span class="v ${cls||(t.v<0?"in":"")}">${t.tipo==="receita"?"+":t.tipo==="reserva"?(t.v<0?"-":"+"):(t.v<0?"+":"-")}${fmt(Math.abs(t.v))}</span></button>`;
 }
 function renderExtrato(){
@@ -1251,7 +1340,7 @@ function atalhos(){
 function abreSheet(t){
   t=t||{};
   if(t.tipo==="pagfat"){ const c=cartao(t.cartao); abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">PAGAMENTO DE FATURA</h3><p>${esc(t.desc)} · ${fmt(t.v)} em ${dataBR(t.d)}</p><div class="grid2"><button class="btn ghost" id="pfX">Fechar</button><button class="btn danger" id="pfD">Excluir</button></div>`); $("#pfX").onclick=fechaForm; armaApagar($("#pfD"),()=>{ const x=delTx(t.id); fechaForm(); render(); toast("Excluído","Desfazer",()=>{devolve([x]);render();}); }); return; }
-  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
+  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, aberto:!!t.aberto, pago:t.pago||null, dc:t.dc||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
   $("#desc").value=F.desc; $("#repetir").checked=false;
   $("#repetir").parentElement.classList.toggle("hide",!!F.id);
   $("#excluir").classList.toggle("hide",!F.id);
@@ -1282,8 +1371,11 @@ function desenhaSheet(){
   }
   // forma de pagamento / destino
   let pb="";
-  if(F.tipo==="gasto" && S.cartoes.length){
-    pb=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.cartao?"on":""}" data-pg="">💸 Pix / débito</button>${S.cartoes.map(c=>`<button class="chip ${F.cartao===c.id?"on":""}" data-pg="${c.id}">💳 ${esc(c.nome)}</button>`).join("")}</div>`;
+  if(F.tipo==="gasto") pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.aberto?"on":""}" data-ab="0">✅ Já paguei</button><button class="chip ${F.aberto?"on":""}" data-ab="1">⏳ Em aberto (a pagar)</button></div>`+(F.aberto?`<p class="small muted" style="margin:4px 0 0">A data abaixo é o <b>vencimento</b>. Quando pagar, marque em Contas.</p>`:"");
+  if(F.tipo==="gasto" && F.aberto){}
+  else if(F.tipo==="gasto" && F.pago && F.pago.de!=="cartao"){ pb+=`<p class="small muted" style="margin:6px 0 0">✅ Paga em ${dataBR(F.pago.d)} · ${esc(nomeDe(F.pago))}</p>`; }
+  else if(F.tipo==="gasto" && S.cartoes.length){
+    pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.cartao?"on":""}" data-pg="">💸 Pix / débito</button>${S.cartoes.map(c=>`<button class="chip ${F.cartao===c.id?"on":""}" data-pg="${c.id}">💳 ${esc(c.nome)}</button>`).join("")}</div>`;
     if(F.cartao && !F.id) pb+=`<div class="parc">Parcelas <select id="parcSel">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===F.parc?"selected":""}>${n}x${n>1&&F.cents?" de "+fmt(F.cents/100/n):""}</option>`).join("")}</select></div>`;
     if(F.id && F.pn>1) pb+=`<p class="small muted" style="margin:6px 0 0">Parcela ${F.pi} de ${F.pn}. Excluir apaga todas as parcelas.</p>`;
   } else if(F.tipo==="reserva" && S.metas.length){
@@ -1291,6 +1383,7 @@ function desenhaSheet(){
   }
   $("#pagBox").innerHTML=pb;
   $$("[data-pg]").forEach(b=>b.onclick=()=>{ F.cartao=b.dataset.pg||null; if(!F.cartao) F.parc=1; desenhaSheet(); });
+  $$("[data-ab]").forEach(b=>b.onclick=()=>{ F.aberto=b.dataset.ab==="1"; if(F.aberto){ F.cartao=null; F.parc=1; F.pago=null; F.dc=null; } desenhaSheet(); });
   $$("[data-mt]").forEach(b=>b.onclick=()=>{ F.meta=b.dataset.mt||null; desenhaSheet(); });
   const ps=$("#parcSel"); if(ps) ps.onchange=()=>{ F.parc=+ps.value; desenhaSheet(); };
   // data
@@ -1332,7 +1425,8 @@ $("#salvar").onclick=()=>{
   let v=F.cents/100; if(F.tipo==="reserva"&&F.tirar) v=-v;
   const catId=F.tipo==="reserva"?"reserva":F.cat;
   if(desc && F.manualCat && F.tipo!=="reserva" && adivinhaCat(desc,F.tipo)!==catId) aprende(desc,F.tipo,catId);
-  const cartaoId=F.tipo==="gasto"?F.cartao:null, metaId=F.tipo==="reserva"?F.meta:null;
+  const aberto=F.tipo==="gasto"&&F.aberto, pago=F.tipo==="gasto"&&!aberto?F.pago:null;
+  const cartaoId=F.tipo==="gasto"&&!aberto?F.cartao:null, metaId=F.tipo==="reserva"?F.meta:null;
   if(F.id){ delTx(F.id); }
   let criados=[];
   if(!F.id && cartaoId && F.parc>1){
@@ -1340,12 +1434,13 @@ $("#salvar").onclick=()=>{
     for(let i=0;i<n;i++){ const vi=i===n-1?Math.round((v-base*(n-1))*100)/100:base;
       criados.push(addTx({d:addDiaMes(F.d,i),v:vi,tipo:"gasto",cat:catId,desc:(desc||cat(catId).nome)+" ("+(i+1)+"/"+n+")",nota:F.nota,cartao:cartaoId,grp,pi:i+1,pn:n})); }
   } else {
-    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn}));
+    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn,aberto:aberto||null,pago:pago,dc:pago&&pago.de==="cartao"&&cartaoId===pago.cartao?F.dc:null}));
   }
   if($("#repetir").checked && !F.id){
     S.rec.push({id:uid(),desc:desc||cat(catId).nome,v:Math.abs(v),tipo:F.tipo,cat:catId,dia:+F.d.slice(8),auto:true,ult:F.d.slice(0,7),cartao:cartaoId}); marcar("cfg");
   }
   const editando=!!F.id; fechaSheet(); render();
+  if(aberto&&!editando){ toast("Conta em aberto ✓ veja em Contas","Ver",()=>mostra("contas")); return; }
   toast(editando?"Alterado ✓":criados.length>1?"Lançado ✓ "+criados.length+"x de "+fmt(criados[0].v):"Lançado ✓ "+fmt(Math.abs(v)), editando?null:"Desfazer", ()=>{criados.forEach(t=>delTx(t.id));render();});
 };
 $("#excluir").onclick=()=>{ if(!F) return; const lista=F.grp?delGrupo(F.grp):[delTx(F.id)].filter(Boolean); fechaSheet(); render(); toast(lista.length>1?lista.length+" parcelas excluídas":"Excluído","Desfazer",()=>{ devolve(lista); render(); }); };
@@ -1464,7 +1559,7 @@ async function preparaDownload(){
   }catch(e){}
 }
 
-function desfazLote(l){ let n=0; for(const m in S.txs){ const a=S.txs[m].length; S.txs[m]=S.txs[m].filter(t=>t.lote!==l); if(S.txs[m].length!==a){ n+=a-S.txs[m].length; marcar("m-"+m);} } render(); toast(n+" lançamentos removidos"); }
+function desfazLote(l){ let n=0; for(const t of todasTx()) if(t.pago&&t.pago.lote===l){ reabre(t); n++; } for(const m in S.txs){ const a=S.txs[m].length; S.txs[m]=S.txs[m].filter(t=>t.lote!==l); if(S.txs[m].length!==a){ n+=a-S.txs[m].length; marcar("m-"+m);} } render(); toast(n+" lançamentos removidos"); }
 function apagaImportados(){ let n=0; for(const m in S.txs){ const a=S.txs[m].length; S.txs[m]=S.txs[m].filter(t=>t.o!=="imp"); if(S.txs[m].length!==a){ n+=a-S.txs[m].length; marcar("m-"+m);} } render(); toast(n+" lançamentos importados apagados"); }
 
 /* ---------- toast ---------- */
@@ -1595,6 +1690,7 @@ function processaItens(itens){
   const c=impCard, sel=c?$("#impFat").value:null, negMaj=itens.filter(i=>i.bruto<0).length>itens.length/2;
   const exist=new Set(todasTx().map(t=>t.d+"|"+t.v.toFixed(2)+"|"+t.tipo));
   const existParc=new Set(todasTx().filter(t=>t.cartao&&t.pn).map(t=>chaveParc(t.cartao,t.desc.replace(/ \(\d+\/\d+\)$/,""),t.pi,t.pn)));
+  const usadasQuita=new Set();
   impItens=itens.map(i0=>{
     const i={...i0,orig:i0};
     if(c){
@@ -1617,6 +1713,8 @@ function processaItens(itens){
     const cc=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros"));
     if(i.noCartao && S.cartoes.length){ i.cartao=S.cartoes[0].id; i.pf="💳 Pix pago com o cartão "+S.cartoes[0].nome+" (entra na fatura)"; }
     const autoDup=(i.tipo==="receita"||i.tipo==="gasto") && (S.txs[i.d.slice(0,7)]||[]).some(t=>(t.o==="auto"||t.o==="rec")&&t.tipo===i.tipo&&Math.abs(t.v-i.v)<1);
+    if(i.tipo==="gasto"&&!i.cartao&&!c){ const q=contasAbertas().find(t=>!usadasQuita.has(t.id)&&Math.abs(t.v-i.v)<.01&&diasAte(t.d)>=diasAte(i.d)-60);
+      if(q){ usadasQuita.add(q.id); return {...i,cat:q.cat,quita:q.id,ok:true,dup:false,pf:"✅ Paga a conta em aberto "+(q.desc||cat(q.cat).nome)+" (venc. "+dataBR(q.d)+")"}; } }
     const dup=exist.has(i.d+"|"+i.v.toFixed(2)+"|"+i.tipo)||autoDup; return {...i,cat:cc,ok:!dup,dup,pf:i.pf||(autoDup?"Já lançado automaticamente (conta fixa / recebimento)":"")};
   });
   desenhaImport();
@@ -1641,6 +1739,7 @@ function desenhaImport(){
     const existParc=new Set(todasTx().filter(t=>t.cartao&&t.pn).map(t=>chaveParc(t.cartao,t.desc.replace(/ \(\d+\/\d+\)$/,""),t.pi,t.pn)));
     for(const i of impItens.filter(i=>i.ok)){
       if(i.mudou&&i.desc) aprende(i.desc,i.tipo,i.cat);
+      if(i.quita){ const q=achaTx(i.quita); if(q&&q.aberto){ marcaPago(q,{d:i.d,v:i.v,de:"conta"}); q.pago.lote=loteImp; n++; continue; } }
       if(c && i.pn){
         const grp=uid();
         for(let k=i.pi;k<=(fut?i.pn:i.pi);k++){ if(k>i.pi && existParc.has(chaveParc(c.id,i.desc,k,i.pn))) continue;
