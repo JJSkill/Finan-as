@@ -372,14 +372,14 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 17</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 18</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
     <div class="card hide sub" id="s-recorrentes">
       <h3>Recebimentos e contas fixas</h3>
       <div class="grid2" style="margin-bottom:10px"><button class="btn sm" id="novoRecR">＋ Recebimento</button><button class="btn sm ghost" id="novoRecG">＋ Conta fixa</button></div>
-      <p class="small muted" style="margin-top:0">Com <b>automático</b> ligado, o lançamento entra sozinho no dia. Desligado, ele aparece no Início para você confirmar com um toque. Para criar um novo, faça um lançamento e marque “Repetir todo mês”.</p>
+      <p class="small muted" style="margin-top:0">Com <b>automático</b> ligado: conta fixa entra no começo do mês em <b>Contas</b> como “em aberto” (você marca quando pagar, com o valor real); salário e outras entradas entram sozinhos no dia (dá para corrigir o valor no Início). Cobranças no cartão entram direto na fatura. Desligado, ele aparece no Início para você confirmar com um toque. Para criar um novo, faça um lançamento e marque “Repetir todo mês”.</p>
       <div id="recList"></div>
     </div>
 
@@ -442,7 +442,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
   <input id="desc" placeholder="Descrição (opcional) — ou digite “uber 23,50”" autocomplete="off">
   <div class="chips" id="dataChips" style="margin-bottom:0"></div>
   <input type="date" id="dataOutra" class="hide" style="margin-top:8px">
-  <label class="small muted" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="repetir" style="width:auto"> Repetir todo mês (conta fixa / salário)</label>
+  <label class="small muted" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="repetir" style="width:auto"> Repetir todo mês (conta fixa entra em Contas como “em aberto” · salário em Recebimentos)</label>
   <div class="keypad" id="keypad"></div>
   <div class="grid2" style="margin-top:10px">
     <button class="btn ghost" id="cancelar">Cancelar</button>
@@ -679,6 +679,9 @@ function dataBR(d){ return new Date(d+"T12:00").toLocaleDateString("pt-BR",{day:
 function rodaRecorrentes(){
   const m=ym(new Date()), dia=new Date().getDate(); let n=0;
   for(const r of S.rec){
+    if(r.auto && r.tipo==="gasto" && !r.cartao && (r.ult||"")<m){ // conta fixa: entra no começo do mês como conta em aberto
+      addTx({d:m+"-"+pad(Math.min(r.dia,diasNoMes(m))),v:r.v,tipo:"gasto",cat:r.cat,desc:r.desc,o:"rec",rid:r.id,aberto:true}); r.ult=m; n++; continue;
+    }
     if(r.auto && (r.ult||"")<m && dia>=Math.min(r.dia,diasNoMes(m))){
       addTx({d:m+"-"+pad(Math.min(r.dia,diasNoMes(m))),v:r.v,tipo:r.tipo,cat:r.cat,desc:r.desc,o:"auto",cartao:r.cartao,rid:r.id}); r.ult=m; n++;
     }
@@ -856,12 +859,14 @@ function formPagarConta(t){
     <label class="f">Valor pago (mude se teve juros ou desconto)</label><input id="fcpV" inputmode="decimal" value="${t.v.toLocaleString("pt-BR",{minimumFractionDigits:2})}">
     <label class="f">Dia em que pagou</label><input id="fcpD" type="date" value="${hoje()}">
     <label class="f">De onde saiu o dinheiro</label><select id="fcpDe">${opts.map(([v,n])=>`<option value="${v}">${n}</option>`).join("")}</select>
+    ${t.rid&&S.rec.find(r=>r.id===t.rid)?`<label class="small muted" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="fcpFixo" style="width:auto"> Usar esse valor nos próximos meses</label>`:""}
     <p class="small muted" id="fcpInfo"></p>
     <div class="grid2"><button class="btn ghost" id="fcpX">Cancelar</button><button class="btn" id="fcpS">Confirmar</button></div>`);
   const info=()=>{ const v=$("#fcpDe").value; $("#fcpInfo").textContent=v==="conta"?"Sai do saldo da conta no dia do pagamento.":v.startsWith("cartao")?"Entra na fatura do cartão e usa o limite. Não mexe no saldo da conta agora.":v==="reserva"?"Eu registro um resgate do cofrinho com o mesmo valor.":"Não mexe no saldo da conta PicPay."; };
   $("#fcpDe").onchange=info; info();
   $("#fcpX").onclick=fechaForm;
   $("#fcpS").onclick=()=>{ const v=parseValor($("#fcpV").value); if(!(v>0)) return; const de=$("#fcpDe").value;
+    const fx=$("#fcpFixo"); if(fx&&fx.checked){ const r=S.rec.find(r=>r.id===t.rid); if(r){ r.v=Math.round(v*100)/100; marcar("cfg"); } }
     marcaPago(t,{d:$("#fcpD").value||hoje(),v,de:de.startsWith("cartao:")?"cartao":de,cartao:de.startsWith("cartao:")?de.slice(7):null});
     fechaForm(); render(); toast("Conta paga ✓","Desfazer",()=>{ reabre(t); render(); }); };
 }
@@ -869,7 +874,7 @@ function billHTML(t,pago){
   const c=cat(t.cat);
   if(pago) return `<div class="cbill"><span class="ic">${c.e}</span><div class="t">${esc(t.desc||c.nome)} <span class="st paga">paga</span><small>pago ${dataBR(t.pago.d)} · ${esc(nomeDe(t.pago))} · venc. ${dataBR(t.d)}</small></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v">${fmt(t.v)}</b><button class="btn sm ghost" data-reabre="${t.id}">Reabrir</button></div></div>`;
   const [st,txt]=stConta(t);
-  return `<div class="cbill"><span class="ic">${c.e}</span><button class="t" data-edc="${t.id}" style="text-align:left;color:inherit">${esc(t.desc||c.nome)} <span class="st ${st}">${txt}</span><small>vencimento ${new Date(t.d+"T12:00").toLocaleDateString("pt-BR")} · ${esc(c.nome)}</small></button><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v">${fmt(t.v)}</b><button class="btn sm" data-pagc="${t.id}">Paguei</button></div></div>`;
+  return `<div class="cbill"><span class="ic">${c.e}</span><button class="t" data-edc="${t.id}" style="text-align:left;color:inherit">${esc(t.desc||c.nome)} <span class="st ${st}">${txt}</span><small>vencimento ${new Date(t.d+"T12:00").toLocaleDateString("pt-BR")} · ${esc(c.nome)}${t.rid?" · 🔁 conta fixa":""}</small></button><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><b class="v">${fmt(t.v)}</b><button class="btn sm" data-pagc="${t.id}">Paguei</button></div></div>`;
 }
 function renderContas(){
   const ab=contasAbertas(), tot=ab.reduce((a,t)=>a+t.v,0), venc=ab.filter(t=>diasAte(t.d)<0), sem=ab.filter(t=>{const n=diasAte(t.d);return n>=0&&n<=7;});
