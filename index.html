@@ -371,7 +371,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 14</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 15</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -1786,7 +1786,8 @@ function processaItens(itens){
     const cc=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros"));
     if(i.noCartao && S.cartoes.length){ i.cartao=S.cartoes[0].id; i.pf="💳 Pix pago com o cartão "+S.cartoes[0].nome+" (entra na fatura)";
       const velho=todasTx().find(t=>t.o==="imp"&&t.tipo==="gasto"&&!t.cartao&&t.d===i.d&&Math.abs(t.v-i.v)<.005&&!usadasQuita.has(t.id));
-      if(velho){ usadasQuita.add(velho.id); return {...i,cat:velho.cat,fixTx:velho.id,ok:true,dup:false,pf:"🔧 Já estava no app como saída da conta. Vou corrigir: foi no cartão "+S.cartoes[0].nome}; } }
+      if(velho){ usadasQuita.add(velho.id); return {...i,cat:velho.cat,fixTx:velho.id,ok:true,dup:false,pf:"🔧 Já estava no app como saída da conta. Vou corrigir: foi no cartão "+S.cartoes[0].nome}; }
+      return {...i,cat:cc,ok:false,dup:false,pf:"💳 Pix pago no cartão: ele já vem na fatura do cartão, por isso deixei desmarcado para não contar duas vezes. Marque só se não lançar a fatura."}; }
     const autoDup=(i.tipo==="receita"||i.tipo==="gasto") && (S.txs[i.d.slice(0,7)]||[]).some(t=>(t.o==="auto"||t.o==="rec")&&t.tipo===i.tipo&&Math.abs(t.v-i.v)<1);
     if(i.tipo==="gasto"&&!i.cartao&&!c){ const q=contasAbertas().find(t=>!usadasQuita.has(t.id)&&Math.abs(t.v-i.v)<.01&&diasAte(t.d)>=diasAte(i.d)-60);
       if(q){ usadasQuita.add(q.id); return {...i,cat:q.cat,quita:q.id,ok:true,dup:false,pf:"✅ Paga a conta em aberto "+(q.desc||cat(q.cat).nome)+" (venc. "+dataBR(q.d)+")"}; } }
