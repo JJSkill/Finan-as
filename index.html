@@ -865,11 +865,30 @@ function saldoMeses(){
   }
   return out;
 }
+function suspeitos(l){ // possíveis duplicados: mesmo tipo e valor parecido em até 6 dias, origens diferentes ou iguais
+  const out=new Set();
+  for(let i=0;i<l.length;i++) for(let j=i+1;j<l.length;j++){ const a=l[i],b=l[j];
+    if(a.tipo===b.tipo&&a.tipo!=="pagfat"&&Math.abs(a.v-b.v)<1&&Math.abs(diasAte(a.d)-diasAte(b.d))<=6&&(a.o!=="imp"||b.o!=="imp")){ out.add(a.id); out.add(b.id); } }
+  return out;
+}
+function formMovMes(m){
+  const h=hoje();
+  const l=todasTx().map(t=>{ const [d,e]=movConta(t); return {t,d,e}; }).filter(x=>x.e&&x.d.slice(0,7)===m&&x.d<=h).sort((a,b)=>a.d.localeCompare(b.d));
+  const sus=suspeitos(l.map(x=>x.t));
+  const ORIG={imp:"importado",auto:"automático",rec:"conta fixa",manual:"lançado à mão"};
+  const ent=l.filter(x=>x.e>0).reduce((a,x)=>a+x.e,0), sai=-l.filter(x=>x.e<0).reduce((a,x)=>a+x.e,0);
+  abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent);text-transform:uppercase">CONTA · ${MESES[+m.slice(5)-1]} ${m.slice(0,4)}</h3>
+    <p class="small muted" style="margin:0 0 6px">Entrou ${fmt(ent)} · saiu ${fmt(sai)} · ${l.length} movimentos.${sus.size?` <b style="color:var(--warn)">⚠️ ${sus.size} parecem repetidos</b> (marcados em amarelo): confira e apague o que não aconteceu de verdade.`:""}</p>
+    <div style="max-height:55vh;overflow:auto">${l.map(x=>`<div class="pend" style="${sus.has(x.t.id)?"background:rgba(255,195,77,.14);border:1px solid rgba(255,195,77,.55);border-radius:10px;padding:8px;margin:4px 0":""}"><div class="t">${esc(x.t.desc||cat(x.t.cat).nome)}<small>${dataBR(x.d)} · ${ORIG[x.t.o]||x.t.o}${x.t.tipo==="reserva"?" · cofrinho":x.t.tipo==="pagfat"?" · fatura":""}</small></div><b style="color:${x.e>0?"var(--good)":"inherit"};white-space:nowrap">${x.e>0?"+":"−"}${fmt(Math.abs(x.e))}</b><button class="btn sm ghost" data-delmv="${x.t.id}" style="padding:4px 8px">🗑</button></div>`).join("")||`<p class="muted small">Nenhum movimento na conta.</p>`}</div>
+    <button class="btn ghost block" id="fmmX" style="margin-top:10px">Fechar</button>`);
+  $("#fmmX").onclick=fechaForm;
+  $$("[data-delmv]").forEach(b=>{ let arm=false; b.onclick=()=>{ if(!arm){ arm=true; b.textContent="Apagar?"; setTimeout(()=>{arm=false;b.textContent="🗑";},3000); return; } const x=delTx(b.dataset.delmv); render(); formMovMes(m); toast("Apagado","Desfazer",()=>{ devolve([x]); render(); formMovMes(m); }); }; });
+}
 function saldoMesesHTML(){
   const l=saldoMeses();
   if(!l.length) return `<p class="muted small" style="margin:0">Informe o saldo da conta (no Início, toque em <b>Saldo da conta</b>) para eu montar o saldo de cada mês.</p>`;
-  return l.slice().reverse().map(x=>`<div class="pend" style="align-items:flex-start"><div class="t"><b style="text-transform:capitalize">${MESES[+x.m.slice(5)-1]} ${x.m.slice(0,4)}</b><small>começou com ${fmt(x.ini)} · <span style="color:var(--good)">+${fmt(x.ent)}</span> · <span style="color:var(--accent2,#ff7aa8)">−${fmt(x.sai)}</span></small></div><div style="text-align:right"><small class="muted" style="display:block;font-size:11px">${x.atual?"até hoje":"sobrou"}</small><b class="${x.fim<0?"neg":""}" style="${x.fim<0?"color:var(--bad)":""}">${fmt(x.fim)}</b></div></div>`).join("")
-    +`<p class="small muted" style="margin:8px 0 0">Só a conta PicPay: compras no cartão entram quando a fatura é paga. Cofrinho conta como saída (guardou) ou entrada (resgatou).</p>`;
+  return l.slice().reverse().map(x=>`<div class="pend" data-smes="${x.m}" style="align-items:flex-start;cursor:pointer"><div class="t"><b style="text-transform:capitalize">${MESES[+x.m.slice(5)-1]} ${x.m.slice(0,4)}</b><small>começou com ${fmt(x.ini)} · <span style="color:var(--good)">+${fmt(x.ent)}</span> · <span style="color:var(--accent2,#ff7aa8)">−${fmt(x.sai)}</span></small></div><div style="text-align:right"><small class="muted" style="display:block;font-size:11px">${x.atual?"até hoje":"sobrou"}</small><b class="${x.fim<0?"neg":""}" style="${x.fim<0?"color:var(--bad)":""}">${fmt(x.fim)}</b></div></div>`).join("")
+    +`<p class="small muted" style="margin:8px 0 0">Toque num mês para ver cada entrada e saída e achar diferenças. Só a conta PicPay: compras no cartão entram quando a fatura é paga. Cofrinho conta como saída (guardou) ou entrada (resgatou).</p>`;
 }
 function formSaldo(){
   const s=saldoConta();
@@ -1043,6 +1062,7 @@ $("#busca").oninput=renderExtrato;
 
 function renderPlano(){
   $("#saldoMeses").innerHTML=saldoMesesHTML();
+  $$("[data-smes]").forEach(b=>b.onclick=()=>formMovMes(b.dataset.smes));
   const r=resumoMes(mesVis), renda=rendaMes(mesVis);
   const ess=S.cats.filter(c=>c.g==="essencial"), liv=S.cats.filter(c=>c.g==="livre");
   const gEss=ess.reduce((a,c)=>a+(r.porCat[c.id]||0),0), gLiv=r.sai-gEss;
