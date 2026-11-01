@@ -362,6 +362,8 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
       <label class="f">Renda mensal (só usada se você não cadastrou recebimentos)</label><input id="cRenda" inputmode="decimal">
       <label class="f">Dia do pagamento</label><input id="cDia" inputmode="numeric">
       <label class="f">Quanto guardar por mês na reserva</label><input id="cMetaMes" inputmode="decimal">
+      <label class="f">Compras no cartão de crédito contam no mês</label>
+      <select id="cCartaoMes"><option value="fatura">Da fatura (quando vence e você paga)</option><option value="compra">Da compra</option></select>
       <label class="f">Meta da reserva (quantos meses de gastos essenciais)</label><input id="cMeses" inputmode="numeric">
       <div class="grid2"><div><label class="f">CDI / Selic ao ano (%)</label><input id="cCdi" inputmode="decimal"></div><div><label class="f">IPCA ao ano (%)</label><input id="cIpca" inputmode="decimal"></div></div>
       <p class="small muted" style="margin:4px 0 0">Usados para estimar o rendimento dos investimentos. Atualize quando o Banco Central mudar a Selic.</p>
@@ -589,8 +591,13 @@ function addTx(t){
 function delTx(id){
   for(const m in S.txs){ const i=S.txs[m].findIndex(x=>x.id===id); if(i>=0){ const [x]=S.txs[m].splice(i,1); marcar("m-"+m); return x; } }
 }
+const modoFatura=()=>(S.cfg.cartaoMes||"fatura")==="fatura";
+const ehCompraCartao=t=>t.tipo==="gasto"&&t.cartao&&cartao(t.cartao);
+function cartaoNoMesCompra(m){ return (S.txs[m]||[]).filter(ehCompraCartao).reduce((a,t)=>a+t.v,0); }
 function resumoMes(m){
-  const l=S.txs[m]||[]; let ent=0,sai=0,guard=0; const porCat={};
+  let l=S.txs[m]||[];
+  if(modoFatura()){ l=l.filter(t=>!ehCompraCartao(t)).concat(todasTx().filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),t.d)===m)); }
+  let ent=0,sai=0,guard=0; const porCat={};
   for(const t of l){
     if(t.tipo==="receita") ent+=t.v;
     else if(t.tipo==="reserva") guard+=t.v;
@@ -743,6 +750,8 @@ function renderInicio(){
     const sobra=r.ent-r.sai-r.guard;
     h=`<div class="label">${m<ym(new Date())?"Resultado do mês":"Mês futuro"}</div><div class="big ${sobra<0?"neg":""}">${fmt(sobra)}</div><div class="sub">Entradas menos gastos e o que foi guardado.</div>`;
   }
+  if(modoFatura()&&S.cartoes.length){ const futuras=(S.txs[m]||[]).filter(t=>ehCompraCartao(t)&&fatKey(cartao(t.cartao),t.d)>m); const v=futuras.reduce((a,t)=>a+t.v,0);
+    if(v) { const ks=[...new Set(futuras.map(t=>fatKey(cartao(t.cartao),t.d)))].sort().map(k=>MESES[+k.slice(5)-1]); h+=`<div class="sub" style="margin-top:8px">💳 Você comprou ${fmt(v)} no cartão em ${MESES[+m.slice(5)-1]}. Isso entra na fatura de ${ks.join(" e ")} e conta no mês em que ela vence.</div>`; } }
   h+=`<div class="row3">
     <div class="stat"><div class="k"><span class="dot" style="background:var(--good)"></span>Entrou</div><div class="v">${fmt0(r.ent)}</div></div>
     <div class="stat"><div class="k"><span class="dot" style="background:var(--accent)"></span>Gastou</div><div class="v">${fmt0(r.sai)}</div></div>
@@ -1174,11 +1183,11 @@ function preencheConfig(){
   $("#cRenda").value=S.cfg.renda?S.cfg.renda.toLocaleString("pt-BR"):"";
   $("#cDia").value=S.cfg.dia||""; $("#cMetaMes").value=S.cfg.metaMes?S.cfg.metaMes.toLocaleString("pt-BR"):"";
   $("#cCdi").value=(S.cfg.cdi??14.25).toLocaleString("pt-BR"); $("#cIpca").value=(S.cfg.ipca??4.5).toLocaleString("pt-BR");
-  $("#cMeses").value=S.cfg.meses||6; $("#cIni").value=S.cfg.ini?S.cfg.ini.toLocaleString("pt-BR"):"0";
+  $("#cMeses").value=S.cfg.meses||6; $("#cCartaoMes").value=S.cfg.cartaoMes||"fatura"; $("#cIni").value=S.cfg.ini?S.cfg.ini.toLocaleString("pt-BR"):"0";
 }
 $("#cSalvar").onclick=()=>{
   S.cfg.renda=parseValor($("#cRenda").value)||0; S.cfg.dia=parseInt($("#cDia").value)||5;
-  S.cfg.metaMes=parseValor($("#cMetaMes").value)||0; S.cfg.meses=parseInt($("#cMeses").value)||6; S.cfg.cdi=parseValor($("#cCdi").value)||14.25; S.cfg.ipca=parseValor($("#cIpca").value)||4.5; S.cfg.ini=parseValor($("#cIni").value)||0;
+  S.cfg.metaMes=parseValor($("#cMetaMes").value)||0; S.cfg.meses=parseInt($("#cMeses").value)||6; S.cfg.cartaoMes=$("#cCartaoMes").value; S.cfg.cdi=parseValor($("#cCdi").value)||14.25; S.cfg.ipca=parseValor($("#cIpca").value)||4.5; S.cfg.ini=parseValor($("#cIni").value)||0;
   S.cfg.feito=S.cfg.renda>0||S.cfg.feito; marcar("cfg"); toast("Salvo ✓");
 };
 $("#cRefazer").onclick=()=>{ const r=recsReceita().length?rendaBase():(parseValor($("#cRenda").value)||S.cfg.renda); if(!r) return toast("Informe a renda primeiro"); S.cfg.renda=r; aplica5030(r); marcar("cfg"); preencheConfig(); toast("Limites refeitos ✓ Veja em Plano"); };
