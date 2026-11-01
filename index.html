@@ -1781,7 +1781,9 @@ function processaItens(itens){
       return {...i,tipo:"pagfat",cat:"fatura",cartao:ccard.id,ref,ok:!dupF,dup:dupF,pf:"💳 Pagamento da fatura "+ccard.nome+" (não conta como gasto)"};
     }
     const cc=i.tipo==="reserva"?"reserva":(adivinhaCat(i.desc,i.tipo)||(i.tipo==="receita"?"recebido":"outros"));
-    if(i.noCartao && S.cartoes.length){ i.cartao=S.cartoes[0].id; i.pf="💳 Pix pago com o cartão "+S.cartoes[0].nome+" (entra na fatura)"; }
+    if(i.noCartao && S.cartoes.length){ i.cartao=S.cartoes[0].id; i.pf="💳 Pix pago com o cartão "+S.cartoes[0].nome+" (entra na fatura)";
+      const velho=todasTx().find(t=>t.o==="imp"&&t.tipo==="gasto"&&!t.cartao&&t.d===i.d&&Math.abs(t.v-i.v)<.005&&!usadasQuita.has(t.id));
+      if(velho){ usadasQuita.add(velho.id); return {...i,cat:velho.cat,fixTx:velho.id,ok:true,dup:false,pf:"🔧 Já estava no app como saída da conta. Vou corrigir: foi no cartão "+S.cartoes[0].nome}; } }
     const autoDup=(i.tipo==="receita"||i.tipo==="gasto") && (S.txs[i.d.slice(0,7)]||[]).some(t=>(t.o==="auto"||t.o==="rec")&&t.tipo===i.tipo&&Math.abs(t.v-i.v)<1);
     if(i.tipo==="gasto"&&!i.cartao&&!c){ const q=contasAbertas().find(t=>!usadasQuita.has(t.id)&&Math.abs(t.v-i.v)<.01&&diasAte(t.d)>=diasAte(i.d)-60);
       if(q){ usadasQuita.add(q.id); return {...i,cat:q.cat,quita:q.id,ok:true,dup:false,pf:"✅ Paga a conta em aberto "+(q.desc||cat(q.cat).nome)+" (venc. "+dataBR(q.d)+")"}; } }
@@ -1809,6 +1811,7 @@ function desenhaImport(){
     const existParc=new Set(todasTx().filter(t=>t.cartao&&t.pn).map(t=>chaveParc(t.cartao,t.desc.replace(/ \(\d+\/\d+\)$/,""),t.pi,t.pn)));
     for(const i of impItens.filter(i=>i.ok)){
       if(i.mudou&&i.desc) aprende(i.desc,i.tipo,i.cat);
+      if(i.fixTx){ const t=achaTx(i.fixTx); if(t){ t.cartao=i.cartao; marcar("m-"+t.d.slice(0,7)); n++; continue; } }
       if(i.quita){ const q=achaTx(i.quita); if(q&&q.aberto){ marcaPago(q,{d:i.d,v:i.v,de:"conta"}); q.pago.lote=loteImp; n++; continue; } }
       if(c && i.pn){
         const grp=uid();
