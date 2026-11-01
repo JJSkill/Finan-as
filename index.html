@@ -350,6 +350,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
       <button class="list-btn" data-go="importar"><span class="e">📥</span><div>Importar extrato ou fatura<small>Conta PicPay ou cartão: print, texto ou arquivo</small></div></button>
       <button class="list-btn" data-go="recorrentes"><span class="e">🔁</span><div>Recebimentos e contas fixas<small>Salário, aluguel, rateio, contas do mês</small></div></button>
       <button class="list-btn" id="maisInv"><span class="e">📈</span><div>Investimentos e metas<small>Carteira, rendimentos, impostos</small></div></button>
+      <button class="list-btn" data-go="ir"><span class="e">🧾</span><div>Imposto de renda<small>Cálculo do ano, carnê-leão e se vai pagar ou restituir</small></div></button>
       <button class="list-btn" data-go="dicas"><span class="e">🧭</span><div>Como organizar o dinheiro<small>O passo a passo, sem complicação</small></div></button>
       <button class="list-btn" data-go="config"><span class="e">⚙️</span><div>Renda e reserva<small>Salário, reserva, dia do pagamento</small></div></button>
       <button class="list-btn hide" id="baixarApp"><span class="e">⬇️</span><div>Baixar o app (arquivo HTML)<small>Abre no Chrome, funciona sem internet, já com seus dados</small></div></button>
@@ -372,7 +373,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 18</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 19</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -385,6 +386,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
 
     <div class="card hide sub" id="s-dicas"><h3>Como organizar o dinheiro</h3><div id="dicas"></div></div>
 
+    <div class="hide sub" id="s-ir"><div id="irArea"></div></div>
     <div class="card hide sub" id="s-config">
       <h3>Renda e reserva</h3>
       <label class="f">Renda mensal (só usada se você não cadastrou recebimentos)</label><input id="cRenda" inputmode="decimal">
@@ -715,6 +717,7 @@ function subMais(nome){
   $$(".sub").forEach(s=>s.classList.toggle("hide",s.id!=="s-"+nome));
   $("#voltarMais").classList.toggle("hide",!nome);
   if(nome==="config") preencheConfig();
+  if(nome==="ir") renderIR();
   if(nome==="importar") prepImport();
   if(nome==="recorrentes") renderRec();
   if(nome==="dicas") renderDicas();
@@ -756,6 +759,81 @@ function infoIR(m){
   const proj = acum + (12-mm)*tributavelMes(m);
   const faixa = v<=5000?"isento":v<=7350?"parcial":"normal";
   return {v,acum,proj,faixa,alug:aluguelMes(m)};
+}
+/* ---------- imposto de renda: cálculo (regras de 2026, Lei 15.270/2025) ---------- */
+const IR26={
+  mes:[[2428.80,0,0],[2826.65,.075,182.16],[3751.05,.15,394.16],[4664.68,.225,675.49],[Infinity,.275,908.73]],
+  ano:[[29145.60,0,0],[33919.80,.075,2185.92],[45012.60,.15,4729.92],[55976.16,.225,8105.88],[Infinity,.275,10904.76]],
+  simplMes:607.20, depMes:189.59, depAno:2275.08, simplAnoTeto:16754.34, obrigaDecl:35584.00 };
+const tabIR=(base,t)=>{ for(const [lim,a,d] of t) if(base<=lim) return Math.max(0,base*a-d); return 0; };
+function redMes(r,imp){ return Math.min(imp, r<=5000?312.89 : r<=7350?Math.max(0,978.62-0.133145*r) : 0); }
+function redAno(r,imp){ return Math.min(imp, r<=60000?2694.15 : r<=88200?Math.max(0,8429.73-0.095575*r) : 0); }
+function calcIRMes(renda,deducoes){ const ded=Math.max(deducoes||0,IR26.simplMes); const base=Math.max(0,renda-ded); const bruto=tabIR(base,IR26.mes); const red=redMes(renda,bruto); return {renda,ded,base,bruto,red,dev:Math.round(Math.max(0,bruto-red)*100)/100}; }
+const irCfg=()=>S.cfg.ir||(S.cfg.ir={bruto:0,inss:0,dep:0,retido:0});
+function irMeses(y){
+  const c=irCfg(), atual=ym(new Date()), out=[], ini=Object.keys(S.txs).filter(k=>(S.txs[k]||[]).length).sort()[0]||atual;
+  for(let i=1;i<=12;i++){ const m=y+"-"+pad(i), fut=m>atual, l=S.txs[m]||[];
+    let sal=l.filter(t=>t.tipo==="receita"&&cat(t.cat).ir==="trib"&&t.cat!=="aluguelrec").reduce((a,t)=>a+t.v,0);
+    let alu=l.filter(t=>t.tipo==="receita"&&t.cat==="aluguelrec").reduce((a,t)=>a+t.v,0);
+    if(m>=atual){ sal+=recsReceita().filter(x=>cat(x.cat).ir==="trib"&&x.cat!=="aluguelrec"&&(m>atual||(x.ult||"")<m)).reduce((a,x)=>a+x.v,0);
+                  alu+=recsReceita().filter(x=>x.cat==="aluguelrec"&&(m>atual||(x.ult||"")<m)).reduce((a,x)=>a+x.v,0); }
+    const semDados=m<ini;
+    if(c.bruto>0 && (sal>0||semDados)) sal=c.bruto;
+    const fonte=calcIRMes(sal,(c.inss||0)+(c.dep||0)*IR26.depMes), carne=calcIRMes(alu,0);
+    out.push({m,fut,sal,alu,fonte,carne,semDados,retido:c.retido>0&&sal>0?c.retido:fonte.dev});
+  }
+  return out;
+}
+function irAno(y){
+  const ms=irMeses(y), c=irCfg();
+  const renda=ms.reduce((a,x)=>a+x.sal+x.alu,0), mesesSal=ms.filter(x=>x.sal>0).length;
+  const dedComp=(c.inss||0)*mesesSal+(c.dep||0)*IR26.depAno, dedSimp=Math.min(renda*.2,IR26.simplAnoTeto);
+  const calc=ded=>{ const base=Math.max(0,renda-ded), b=tabIR(base,IR26.ano), r=redAno(renda,b); return {ded,base,bruto:b,red:r,dev:Math.max(0,b-r)}; };
+  const comp=calc(dedComp), simp=calc(dedSimp), melhor=simp.dev<=comp.dev?{...simp,modo:"simplificada"}:{...comp,modo:"completa"};
+  const pago=ms.reduce((a,x)=>a+x.retido+x.carne.dev,0);
+  return {ms,renda,melhor,pago,saldo:Math.round((melhor.dev-pago)*100)/100,declara:renda>IR26.obrigaDecl};
+}
+function renderIR(){
+  const y=+mesVis.slice(0,4), a=irAno(y), c=irCfg(), atual=ym(new Date());
+  const veredito = a.saldo>0.5 ? ["bad","Imposto a pagar na declaração",`Cerca de <b>${fmt(a.saldo)}</b> a pagar em ${y+1}. Dá para dividir em até 8 quotas.`]
+    : a.saldo<-0.5 ? ["good","Imposto a restituir",`Cerca de <b>${fmt(-a.saldo)}</b> de volta em ${y+1}.`]
+    : ["good","Você não deve pagar imposto",`Com a renda prevista para ${y}, o imposto do ano fica zerado pela regra de isenção até R$ 5 mil por mês (R$ 60 mil por ano).`];
+  const carneTot=a.ms.reduce((s,x)=>s+x.carne.dev,0);
+  $("#irArea").innerHTML=`
+  <div class="card hero"><div class="label">🧾 Imposto de renda ${y} · declaração em ${y+1} · estimativa</div>
+    <div class="big ${veredito[0]==="bad"?"neg":""}" style="font-size:24px">${veredito[1]}</div><div class="sub">${veredito[2]}</div>
+    <div class="row3"><div class="stat"><div class="k">Renda tributável no ano</div><div class="v">${fmt0(a.renda)}</div></div>
+    <div class="stat"><div class="k">Imposto do ano</div><div class="v">${fmt0(a.melhor.dev)}</div></div>
+    <div class="stat"><div class="k">Já descontado/pago</div><div class="v">${fmt0(a.pago)}</div></div></div></div>
+  ${a.ms.some(x=>x.semDados&&!c.bruto)?`<div class="alert warn">📅 <div><b>${a.ms.filter(x=>x.semDados).map(x=>MESES[+x.m.slice(5)-1]).join(", ")} não estão no app</b> (o extrato começa depois). O total do ano fica menor que o real. Informe o salário bruto lá embaixo para eu completar esses meses.</div></div>`:""}
+  <div class="alert ${a.declara?"warn":"info"}">📋 <div>${a.declara?`<b>Você provavelmente precisa entregar a declaração</b> em ${y+1}: a renda tributável prevista (${fmt(a.renda)}) passa do limite de obrigatoriedade (cerca de ${fmt(IR26.obrigaDecl)}, confira o valor oficial quando a Receita publicar as regras de ${y+1}). Mesmo sem imposto a pagar, entregar é obrigatório.`:`Pela renda prevista, você provavelmente <b>não é obrigado a declarar</b> (limite de cerca de ${fmt(IR26.obrigaDecl)} no ano). Outras situações também obrigam, como ter bens acima de R$ 800 mil.`}</div></div>
+  <div class="card"><h3>Mês a mês</h3>
+    <p class="small muted" style="margin-top:0">Salário: o imposto é descontado pela empresa no holerite. Aluguel recebido de pessoa física: quem paga é você, pelo <b>carnê-leão</b> (DARF até o último dia útil do mês seguinte).</p>
+    ${a.ms.map(x=>`<div class="pend" style="align-items:flex-start;${x.fut?"opacity:.6":""}"><div class="t"><b style="text-transform:capitalize">${MESES[+x.m.slice(5)-1]}</b>${x.m===atual?" <span class='st aberta'>agora</span>":x.fut?" <small style='display:inline'>previsto</small>":x.semDados?" <small style='display:inline'>"+(c.bruto?"pelo salário bruto":"sem dados")+"</small>":""}
+      <small>salário ${fmt(x.sal)} → imposto ${x.fonte.dev?fmt(x.fonte.dev):"isento"}${x.fonte.red>0&&x.fonte.bruto>0?` (redução de ${fmt(x.fonte.red)})`:""}${x.alu?` · aluguel ${fmt(x.alu)} → carnê-leão ${x.carne.dev?fmt(x.carne.dev):"isento"}`:""}</small></div>
+      <b style="white-space:nowrap;${x.fonte.dev+x.carne.dev?"color:var(--warn)":"color:var(--good)"}">${x.fonte.dev+x.carne.dev?fmt(x.fonte.dev+x.carne.dev):"R$ 0"}</b></div>`).join("")}
+    ${carneTot?`<div class="alert warn" style="margin-top:10px">🏘️ <div><b>Carnê-leão no ano: ${fmt(carneTot)}.</b> Gere o DARF todo mês no app ou site da Receita (Carnê-Leão Web).</div></div>`:""}
+  </div>
+  <div class="card"><h3>Cálculo do ano</h3>
+    <div class="kv"><span>Rendimentos tributáveis</span><b>${fmt(a.renda)}</b></div>
+    <div class="kv"><span>Deduções (${a.melhor.modo})</span><b>−${fmt(a.melhor.ded)}</b></div>
+    <div class="kv"><span>Base de cálculo</span><b>${fmt(a.melhor.base)}</b></div>
+    <div class="kv"><span>Imposto pela tabela</span><b>${fmt(a.melhor.bruto)}</b></div>
+    <div class="kv"><span>Redução (isenção até R$ 60 mil/ano)</span><b style="color:var(--good)">−${fmt(a.melhor.red)}</b></div>
+    <div class="kv"><span>Imposto devido no ano</span><b>${fmt(a.melhor.dev)}</b></div>
+    <div class="kv"><span>Descontado no holerite + carnê-leão</span><b>−${fmt(a.pago)}</b></div>
+    <div class="kv"><span>${a.saldo>=0?"A pagar":"A restituir"}</span><b style="color:${a.saldo>0.5?"var(--bad)":"var(--good)"}">${fmt(Math.abs(a.saldo))}</b></div>
+  </div>
+  <div class="card"><h3>Deixe o cálculo mais certo</h3>
+    <p class="small muted" style="margin-top:0">O app só vê o que caiu na conta (salário líquido). Com os dados do holerite o cálculo fica exato. Tudo opcional.</p>
+    <div class="grid2"><div><label class="f">Salário bruto por mês</label><input id="irB" inputmode="decimal" value="${c.bruto?c.bruto.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="do holerite"></div>
+    <div><label class="f">INSS descontado por mês</label><input id="irI" inputmode="decimal" value="${c.inss?c.inss.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$"></div></div>
+    <div class="grid2"><div><label class="f">IR descontado por mês</label><input id="irR" inputmode="decimal" value="${c.retido?c.retido.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$ (holerite)"></div>
+    <div><label class="f">Dependentes</label><input id="irD" inputmode="numeric" value="${c.dep||""}" placeholder="0"></div></div>
+    <button class="btn block" id="irSalvar" style="margin-top:12px">Recalcular</button>
+    <p class="small muted" style="margin:10px 0 0">Regras de ${y}: tabela mensal com isenção até R$ 2.428,80, mais a redução da Lei 15.270/2025, que zera o imposto até R$ 5.000 por mês e reduz até R$ 7.350. Rateio de contas, Pix recebidos de família, rendimentos de poupança e benefícios (VR/VA) não entram como renda tributável. Isto é uma estimativa e não substitui o programa da Receita.</p>
+  </div>`;
+  $("#irSalvar").onclick=()=>{ const c=irCfg(); c.bruto=parseValor($("#irB").value)||0; c.inss=parseValor($("#irI").value)||0; c.retido=parseValor($("#irR").value)||0; c.dep=parseInt($("#irD").value)||0; marcar("cfg"); renderIR(); toast("Recalculado ✓"); };
 }
 function irHTML(m){
   const i=infoIR(m), y=m.slice(0,4);
@@ -1139,7 +1217,8 @@ function renderPlano(){
     return `<div class="catrow"><div class="top"><span class="nm">${c.e} ${esc(c.nome)}${badge}</span><input class="lim" data-lim="${c.id}" inputmode="decimal" value="${c.lim?c.lim.toLocaleString("pt-BR"):""}" placeholder="sem limite"></div>
       <div class="vals" style="margin-top:4px">gasto ${fmt(g)}${c.lim?` · resta ${fmt(c.lim-g)}`:""}</div>${c.lim?`<div class="bar ${cls}"><i style="width:${Math.min(100,p*100)}%"></i></div>`:""}</div>`;}).join("");
   $("#planoCats").innerHTML=bloco("🧱 Essencial",ess)+bloco("🎈 Livre",liv);
-  renderHist(); $("#irBox").innerHTML=irHTML(mesVis);
+  renderHist(); $("#irBox").innerHTML=irHTML(mesVis)+`<button class="btn ghost block" id="abreIR" style="margin-top:10px">🧾 Abrir a área do imposto de renda</button>`;
+  $("#abreIR").onclick=()=>{ mostra("mais"); subMais("ir"); };
   $$("[data-lim]").forEach(i=>i.onchange=()=>{ const c=S.cats.find(x=>x.id===i.dataset.lim); const v=parseValor(i.value); c.lim=isNaN(v)?0:v; marcar("cfg"); renderPlano(); });
 }
 
