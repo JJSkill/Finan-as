@@ -332,6 +332,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
   <section class="view" id="v-cartoes">
     <div class="cards" id="cardsWrap"></div>
     <div id="cartaoInfo"></div>
+    <div id="benWrap"></div>
   </section>
 
   <!-- METAS + RESERVA -->
@@ -371,7 +372,7 @@ label.f{display:block;font-size:12px;color:var(--ink2);margin:14px 0 5px;letter-
         <label class="btn ghost" style="cursor:pointer">Enviar arquivo<input type="file" id="impFile" accept=".csv,.ofx,.txt,text/*" class="hide"></label>
       </div>
       <div id="impPrev"></div>
-      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 15</p>
+      <p class="small muted" style="text-align:right;margin:8px 0 0;opacity:.6">versão 16</p>
       <button class="btn ghost block sm" id="impLimpar" style="margin-top:14px">🧹 Apagar tudo que já foi importado</button>
     </div>
 
@@ -503,6 +504,7 @@ const CATS_PADRAO = [
   {id:"extra",nome:"Renda extra",e:"💵",tipo:"receita",ir:"trib"},
   {id:"rendinv",nome:"Rendimentos",e:"📈",tipo:"receita",ir:"inv"},
   {id:"recebido",nome:"Pix recebido",e:"📲",tipo:"receita",ir:"nao"},
+  {id:"beneficio",nome:"Benefício (VR/VA)",e:"🎟️",tipo:"receita",ir:"nao"},
   {id:"reserva",nome:"Reserva",e:"🐷",tipo:"reserva"},
 ];
 const REGRAS_PADRAO = [
@@ -529,11 +531,11 @@ let S = novoEstado();
 function novoEstado(){
   return {cfg:{renda:0,dia:5,metaMes:0,meses:6,ini:0,feito:false},
     cats:CATS_PADRAO.map(c=>({id:c.id,nome:c.nome,e:c.e,tipo:c.tipo,g:c.g||null,lim:0,ir:c.ir||null})),
-    rec:[], regras:[], cartoes:[], metas:[], invest:[], txs:{}};
+    rec:[], regras:[], cartoes:[], metas:[], invest:[], benef:[], txs:{}};
 }
 function garanteCats(){ // adiciona categorias novas em dados antigos
   for(const c of CATS_PADRAO){ const x=S.cats.find(k=>k.id===c.id); if(!x) S.cats.push({id:c.id,nome:c.nome,e:c.e,tipo:c.tipo,g:c.g||null,lim:0,ir:c.ir||null}); else if(c.ir&&!x.ir) x.ir=c.ir; }
-  for(const k of ["cartoes","metas","invest"]) if(!Array.isArray(S[k])) S[k]=[];
+  for(const k of ["cartoes","metas","invest","benef"]) if(!Array.isArray(S[k])) S[k]=[];
 }
 const cat = id => S.cats.find(c=>c.id===id) || {id, nome:id, e:"❔", tipo:"gasto"};
 const txsMes = m => S.txs[m] || (S.txs[m]=[]);
@@ -566,7 +568,7 @@ function carregaLocal(){ let t=null; try{ t=localStorage.getItem(LS); }catch(e){
   try{ if(t){ S=Object.assign(novoEstado(),JSON.parse(t)); } else if(window.FINOS_SEED){ S=Object.assign(novoEstado(),window.FINOS_SEED); salvaLocal(); } }catch(e){} garanteCats(); }
 function marcar(chave){ sujo.add(chave); salvaLocal(); clearTimeout(timerSalvar); timerSalvar=setTimeout(enviaNuvem,700); }
 function corpoDoc(chave){
-  if(chave==="cfg") return {cfg:S.cfg,cats:S.cats,rec:S.rec,regras:S.regras,cartoes:S.cartoes,metas:S.metas,invest:S.invest,at:Date.now()};
+  if(chave==="cfg") return {cfg:S.cfg,cats:S.cats,rec:S.rec,regras:S.regras,cartoes:S.cartoes,metas:S.metas,invest:S.invest,benef:S.benef,at:Date.now()};
   return {txs:S.txs[chave.slice(2)]||[],at:Date.now()};
 }
 async function enviaNuvem(){
@@ -601,7 +603,7 @@ async function conectaNuvem(){
       for(const d of snap.docs){
         if(sujo.has(d.id) || d.metadata.hasPendingWrites) continue;
         const o0=d.data(); if(!o0) continue; const o=JSON.parse(JSON.stringify(o0));
-        if(d.id==="cfg"){ if(o.cfg){S.cfg=o.cfg;} if(o.cats)S.cats=o.cats; if(o.rec)S.rec=o.rec; if(o.regras)S.regras=o.regras; if(o.cartoes)S.cartoes=o.cartoes; if(o.metas)S.metas=o.metas; if(o.invest)S.invest=o.invest; garanteCats(); mudou=true; }
+        if(d.id==="cfg"){ if(o.cfg){S.cfg=o.cfg;} if(o.cats)S.cats=o.cats; if(o.rec)S.rec=o.rec; if(o.regras)S.regras=o.regras; if(o.cartoes)S.cartoes=o.cartoes; if(o.metas)S.metas=o.metas; if(o.invest)S.invest=o.invest; if(o.benef)S.benef=o.benef; garanteCats(); mudou=true; }
         else if(d.id.startsWith("m-")){ S.txs[d.id.slice(2)]=Array.isArray(o.txs)?o.txs.map(x=>({...x})):[]; mudou=true; }
       }
       if(mudou){ S.cats=S.cats.map(c=>({...c})); S.rec=S.rec.map(r=>({...r})); S.regras=S.regras.map(r=>({...r})); S.cfg={...S.cfg}; salvaLocal(); rodaRecorrentes(); render(); }
@@ -613,7 +615,7 @@ async function conectaNuvem(){
 /* ---------- lançamentos ---------- */
 function addTx(t){
   const m=t.d.slice(0,7);
-  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote","aberto","pago","dc","rid"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
+  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote","aberto","pago","dc","rid","ben"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
   txsMes(m).push(tx); marcar("m-"+m); return tx;
 }
 function delTx(id){
@@ -681,7 +683,11 @@ function rodaRecorrentes(){
       addTx({d:m+"-"+pad(Math.min(r.dia,diasNoMes(m))),v:r.v,tipo:r.tipo,cat:r.cat,desc:r.desc,o:"auto",cartao:r.cartao,rid:r.id}); r.ult=m; n++;
     }
   }
-  if(n){ marcar("cfg"); toast(n+" conta(s) fixa(s) lançada(s) automaticamente"); }
+  for(const b of (S.benef||[])){
+    if(b.recV>0 && b.recDia && (b.ult||"")<m && dia>=Math.min(b.recDia,diasNoMes(m))){
+      addTx({d:m+"-"+pad(Math.min(b.recDia,diasNoMes(m))),v:b.recV,tipo:"receita",cat:"beneficio",desc:"Recarga "+b.nome,o:"auto",ben:b.id}); b.ult=m; n++; }
+  }
+  if(n){ marcar("cfg"); toast(n+" lançamento(s) automático(s) do mês"); }
 }
 function pendentes(){
   const m=ym(new Date());
@@ -723,7 +729,7 @@ function render(){
   if(viewAtual==="extrato") renderExtrato();
   if(viewAtual==="plano") renderPlano();
   if(viewAtual==="reserva") renderReserva();
-  if(viewAtual==="cartoes") renderCartoes();
+  if(viewAtual==="cartoes"){ renderCartoes(); renderBen(); }
   if(viewAtual==="contas") renderContas();
   badgeContas();
 }
@@ -776,6 +782,52 @@ function formRecebi(x){
     const tx=addTx({d,v,tipo:"receita",cat:x.cat,desc:x.desc,o:"rec",rid:x.id}); const antes={ult:x.ult,v:x.v};
     x.ult=d.slice(0,7)>m?d.slice(0,7):m; if($("#frbFixo").checked) x.v=Math.round(v*100)/100; marcar("cfg");
     fechaForm(); render(); toast("Recebido ✓ "+fmt(v),"Desfazer",()=>{ delTx(tx.id); x.ult=antes.ult; x.v=antes.v; marcar("cfg"); render(); }); };
+}
+/* ---------- cartões de benefício (pré-pagos) ---------- */
+const benef=id=>(S.benef||[]).find(b=>b.id===id);
+function saldoBen(b){ const h=hoje(); return todasTx().filter(t=>t.ben===b.id&&t.d>=(b.dIni||"0000")&&t.d<=h).reduce((a,t)=>a+(t.tipo==="receita"?t.v:t.tipo==="gasto"?-t.v:0),b.ini||0); }
+function formBen(b){
+  const novo=!b; b=b||{id:uid(),nome:"iFood Benefícios",cor:"rosa",ini:0,dIni:hoje(),recV:0,recDia:0};
+  abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">${novo?"NOVO CARTÃO DE BENEFÍCIO":"EDITAR CARTÃO DE BENEFÍCIO"}</h3>
+    <p class="small muted" style="margin:0">Cartão pré-pago (vale-refeição, vale-alimentação, iFood). O dinheiro cai nele, e o que você gasta sai do saldo dele, sem mexer na conta.</p>
+    <label class="f">Nome</label><input id="fbN" value="${esc(b.nome)}" placeholder="Ex.: iFood Benefícios">
+    <div class="grid2"><div><label class="f">Saldo ${novo?"de hoje":"inicial"}</label><input id="fbS" inputmode="decimal" value="${novo?"":(b.ini||0).toLocaleString("pt-BR",{minimumFractionDigits:2})}" placeholder="R$"></div>
+    <div><label class="f">Saldo de quando</label><input id="fbD" type="date" value="${b.dIni||hoje()}" max="${hoje()}"></div></div>
+    <div class="grid2"><div><label class="f">Recarga todo mês</label><input id="fbR" inputmode="decimal" value="${b.recV?b.recV.toLocaleString("pt-BR",{minimumFractionDigits:2}):""}" placeholder="R$ (opcional)"></div>
+    <div><label class="f">Cai no dia</label><input id="fbRD" inputmode="numeric" value="${b.recDia||""}" placeholder="dia"></div></div>
+    <p class="small muted" style="margin:6px 0 0">Com a recarga preenchida, eu lanço sozinho todo mês. Se o valor mudar, é só editar a recarga no extrato.</p>
+    <label class="f">Cor</label><div class="cores" id="fbCor">${Object.keys(CORES).map(k=>`<button data-c="${k}" class="${k===b.cor?"on":""}" style="background:${CORES[k]}"></button>`).join("")}</div>
+    <div class="grid2" style="margin-top:14px"><button class="btn ghost" id="fbX">Cancelar</button><button class="btn" id="fbOk">Salvar</button></div>
+    ${novo?"":`<button class="btn danger block" style="margin-top:8px" id="fbDel">Excluir</button>`}`);
+  let cor=b.cor; $$("#fbCor button").forEach(x=>x.onclick=()=>{ cor=x.dataset.c; $$("#fbCor button").forEach(y=>y.classList.toggle("on",y===x)); });
+  $("#fbX").onclick=fechaForm;
+  $("#fbOk").onclick=()=>{ const nome=$("#fbN").value.trim(); if(!nome) return toast("Dê um nome ao cartão");
+    const d=$("#fbD").value||hoje(), v=parseValor($("#fbS").value)||0;
+    const ini = (novo && d===hoje()) ? v - todasTx().filter(t=>t.ben===b.id&&t.d===d).reduce((a,t)=>a+(t.tipo==="receita"?t.v:-t.v),0) : v;
+    const rd=parseInt($("#fbRD").value)||0;
+    Object.assign(b,{nome,cor,ini,dIni:d,recV:parseValor($("#fbR").value)||0,recDia:Math.min(31,Math.max(0,rd))});
+    if(novo){ if(b.recDia && new Date().getDate()>=b.recDia) b.ult=ym(new Date()); S.benef.push(b); }
+    marcar("cfg"); fechaForm(); render(); toast("Cartão de benefício salvo ✓"); };
+  if(!novo) armaApagar($("#fbDel"),()=>{ S.benef=S.benef.filter(x=>x.id!==b.id); marcar("cfg"); fechaForm(); render(); toast("Cartão excluído (os lançamentos continuam no extrato)"); });
+}
+function renderBen(){
+  const el=$("#benWrap"); if(!el) return;
+  const h=hoje(), m=ym(new Date());
+  el.innerHTML=`<div class="card"><h3>Cartões de benefício</h3>`+(S.benef.length?S.benef.map(b=>{
+    const s=saldoBen(b), l=todasTx().filter(t=>t.ben===b.id&&t.d<=h).sort((a,c)=>c.d.localeCompare(a.d));
+    const gm=l.filter(t=>t.tipo==="gasto"&&t.d.slice(0,7)===m).reduce((a,t)=>a+t.v,0);
+    return `<div style="border-radius:16px;padding:14px;margin:8px 0;background:${CORES[b.cor]||CORES.rosa};color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:Orbitron;font-size:13px;letter-spacing:.08em">🎟️ ${esc(b.nome)}</b><button class="btn sm ghost" data-edben="${b.id}" style="background:rgba(0,0,0,.25);color:#fff">Editar</button></div>
+      <div style="font-size:12px;opacity:.85;margin-top:10px">Saldo disponível</div><div style="font-family:Orbitron;font-size:26px;font-weight:700">${fmt(s)}</div>
+      <div style="font-size:12px;opacity:.9;margin-top:4px">Gastou ${fmt(gm)} este mês${b.recV?` · recarga de ${fmt(b.recV)} todo dia ${b.recDia}`:""}</div></div>
+      <div class="grid2"><button class="btn sm" data-gben="${b.id}">＋ Gasto</button><button class="btn sm ghost" data-rben="${b.id}">＋ Recarga</button></div>
+      ${l.slice(0,5).map(t=>`<div class="pend" data-tx="${t.id}" style="cursor:pointer"><span style="font-size:18px">${cat(t.cat).e}</span><div class="t">${esc(t.desc||cat(t.cat).nome)}<small>${dataBR(t.d)}</small></div><b style="color:${t.tipo==="receita"?"var(--good)":"inherit"}">${t.tipo==="receita"?"+":"−"}${fmt(t.v)}</b></div>`).join("")}`; }).join(""):`<p class="muted small" style="margin:0">Tem vale-refeição, vale-alimentação ou iFood Benefícios? Cadastre aqui para ver o saldo e lançar os gastos nele, sem mexer na conta.</p>`)
+    +`<button class="btn ghost block" id="addBen" style="margin-top:10px">＋ Cadastrar cartão de benefício</button></div>`;
+  $("#addBen").onclick=()=>formBen(null);
+  $$("[data-edben]").forEach(x=>x.onclick=()=>formBen(benef(x.dataset.edben)));
+  $$("[data-gben]").forEach(x=>x.onclick=()=>abreSheet({tipo:"gasto",ben:x.dataset.gben}));
+  $$("[data-rben]").forEach(x=>x.onclick=()=>abreSheet({tipo:"receita",cat:"beneficio",ben:x.dataset.rben,desc:"Recarga "+benef(x.dataset.rben).nome}));
+  $$("#benWrap [data-tx]").forEach(x=>x.onclick=()=>abreSheet(achaTx(x.dataset.tx)));
 }
 /* ---------- contas a pagar ---------- */
 function achaTx(id){ for(const m in S.txs){ const t=S.txs[m].find(x=>x.id===id); if(t) return t; } return null; }
@@ -844,6 +896,7 @@ function efeitoConta(t){
   return 0;
 }
 function movConta(t){ // [data, efeito] no saldo da conta
+  if(t.ben) return [t.d,0];
   if(t.tipo==="gasto"&&t.aberto) return [t.d,0];
   if(t.tipo==="gasto"&&t.pago) return [t.pago.d, (t.pago.de==="conta"||t.pago.de==="reserva")?-t.v:0];
   return [t.d,efeitoConta(t)];
@@ -919,7 +972,9 @@ function renderSaldos(){
     (!S.cartoes.length?`<div class="v" style="font-size:14px">Cadastrar</div><div class="s">Adicione seu cartão</div>`
      :!cs.length?`<div class="v" style="font-size:14px">Sem limite</div><div class="s">Informe o limite do cartão</div>`
      :`<div class="v ${disp<0?"neg":""}">${fmt(disp)}</div><div class="s">${cs.length>1?cs.map(c=>esc(c.nome)+" "+fmt0(c.limite-usadoCartao(c))).join(" · "):"de "+fmt0(lim)+" de limite"}</div>`)+`</button>`;
-  $("#saldos").innerHTML=conta+cart;
+  const bens=(S.benef||[]).map(b=>{ const v=saldoBen(b); return `<button class="sbox" data-sbben="${b.id}" style="--sc:#ff2f6d"><div class="k">🎟️ ${esc(b.nome)}</div><div class="v ${v<0?"neg":""}">${fmt(v)}</div><div class="s">saldo do benefício</div></button>`; }).join("");
+  $("#saldos").innerHTML=conta+cart+bens;
+  $$("[data-sbben]").forEach(x=>x.onclick=()=>mostra("cartoes"));
   $("#sbConta").onclick=formSaldo;
   $("#sbCartao").onclick=()=>mostra("cartoes");
 }
@@ -1045,7 +1100,7 @@ function metaReserva(){
 function txHTML(t){
   if(t.tipo==="pagfat"){ const cc=cartao(t.cartao); return `<button class="tx" data-tx="${t.id}"><span class="ic">💳</span><span class="t"><div>${esc(t.desc||"Pagamento de fatura")}</div><small>fatura ${cc?esc(cc.nome):""} · não conta como gasto</small></span><span class="v">${fmt(t.v)}</span></button>`; }
   const c=cat(t.cat), cls=t.tipo==="receita"?"in":t.tipo==="reserva"?"sv":"", cc=t.cartao?cartao(t.cartao):null, mt=t.meta?S.metas.find(m=>m.id===t.meta):null;
-  const info=[t.tipo==="reserva"?(mt?mt.e+" "+mt.nome:"Reserva"):c.nome, cc?"💳 "+cc.nome+(t.pn>1?" "+t.pi+"/"+t.pn:""):"", t.aberto?"⏳ em aberto":"", t.pago?"✅ pago "+dataBR(t.pago.d)+(t.pago.de!=="cartao"?" · "+nomeDe(t.pago):""):"", t.o==="auto"?"automático":t.o==="imp"?"importado":""].filter(Boolean).map(esc).join(" · ");
+  const info=[t.tipo==="reserva"?(mt?mt.e+" "+mt.nome:"Reserva"):c.nome, cc?"💳 "+cc.nome+(t.pn>1?" "+t.pi+"/"+t.pn:""):"", t.ben&&benef(t.ben)?"🎟️ "+benef(t.ben).nome:"", t.aberto?"⏳ em aberto":"", t.pago?"✅ pago "+dataBR(t.pago.d)+(t.pago.de!=="cartao"?" · "+nomeDe(t.pago):""):"", t.o==="auto"?"automático":t.o==="imp"?"importado":""].filter(Boolean).map(esc).join(" · ");
   return `<button class="tx" data-tx="${t.id}"><span class="ic">${t.tipo==="reserva"&&mt?mt.e:c.e}</span><span class="t"><div>${esc(t.desc||c.nome)}</div><small>${info}</small></span><span class="v ${cls||(t.v<0?"in":"")}">${t.tipo==="receita"?"+":t.tipo==="reserva"?(t.v<0?"-":"+"):(t.v<0?"+":"-")}${fmt(Math.abs(t.v))}</span></button>`;
 }
 function renderExtrato(){
@@ -1413,7 +1468,7 @@ function atalhos(){
 function abreSheet(t){
   t=t||{};
   if(t.tipo==="pagfat"){ const c=cartao(t.cartao); abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">PAGAMENTO DE FATURA</h3><p>${esc(t.desc)} · ${fmt(t.v)} em ${dataBR(t.d)}</p><div class="grid2"><button class="btn ghost" id="pfX">Fechar</button><button class="btn danger" id="pfD">Excluir</button></div>`); $("#pfX").onclick=fechaForm; armaApagar($("#pfD"),()=>{ const x=delTx(t.id); fechaForm(); render(); toast("Excluído","Desfazer",()=>{devolve([x]);render();}); }); return; }
-  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, rid:t.rid||null, o:t.o||null, aberto:!!t.aberto, pago:t.pago||null, dc:t.dc||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
+  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, rid:t.rid||null, o:t.o||null, ben:t.ben||null, aberto:!!t.aberto, pago:t.pago||null, dc:t.dc||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
   $("#desc").value=F.desc; $("#repetir").checked=false;
   $("#repetir").parentElement.classList.toggle("hide",!!F.id);
   $("#excluir").classList.toggle("hide",!F.id);
@@ -1447,16 +1502,19 @@ function desenhaSheet(){
   if(F.tipo==="gasto") pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.aberto?"on":""}" data-ab="0">✅ Já paguei</button><button class="chip ${F.aberto?"on":""}" data-ab="1">⏳ Em aberto (a pagar)</button></div>`+(F.aberto?`<p class="small muted" style="margin:4px 0 0">A data abaixo é o <b>vencimento</b>. Quando pagar, marque em Contas.</p>`:"");
   if(F.tipo==="gasto" && F.aberto){}
   else if(F.tipo==="gasto" && F.pago && F.pago.de!=="cartao"){ pb+=`<p class="small muted" style="margin:6px 0 0">✅ Paga em ${dataBR(F.pago.d)} · ${esc(nomeDe(F.pago))}</p>`; }
-  else if(F.tipo==="gasto" && S.cartoes.length){
-    pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.cartao?"on":""}" data-pg="">💸 Pix / débito</button>${S.cartoes.map(c=>`<button class="chip ${F.cartao===c.id?"on":""}" data-pg="${c.id}">💳 ${esc(c.nome)}</button>`).join("")}</div>`;
+  else if(F.tipo==="gasto" && (S.cartoes.length||S.benef.length)){
+    pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.cartao&&!F.ben?"on":""}" data-pg="">💸 Pix / débito</button>${S.cartoes.map(c=>`<button class="chip ${F.cartao===c.id?"on":""}" data-pg="${c.id}">💳 ${esc(c.nome)}</button>`).join("")}${S.benef.map(b=>`<button class="chip ${F.ben===b.id?"on":""}" data-bn="${b.id}">🎟️ ${esc(b.nome)} · ${fmt0(saldoBen(b))}</button>`).join("")}</div>`;
     if(F.cartao && !F.id) pb+=`<div class="parc">Parcelas <select id="parcSel">${Array.from({length:24},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===F.parc?"selected":""}>${n}x${n>1&&F.cents?" de "+fmt(F.cents/100/n):""}</option>`).join("")}</select></div>`;
     if(F.id && F.pn>1) pb+=`<p class="small muted" style="margin:6px 0 0">Parcela ${F.pi} de ${F.pn}. Excluir apaga todas as parcelas.</p>`;
+  } else if(F.tipo==="receita" && S.benef.length){
+    pb+=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.ben?"on":""}" data-bn="">🏦 Caiu na conta</button>${S.benef.map(b=>`<button class="chip ${F.ben===b.id?"on":""}" data-bn="${b.id}">🎟️ Recarga ${esc(b.nome)}</button>`).join("")}</div>`;
   } else if(F.tipo==="reserva" && S.metas.length){
     pb=`<div class="chips" style="margin:2px 0 0"><button class="chip ${!F.meta?"on":""}" data-mt="">🛡️ Reserva</button>${S.metas.map(m=>`<button class="chip ${F.meta===m.id?"on":""}" data-mt="${m.id}">${m.e} ${esc(m.nome)}</button>`).join("")}</div>`;
   }
   $("#pagBox").innerHTML=pb;
-  $$("[data-pg]").forEach(b=>b.onclick=()=>{ F.cartao=b.dataset.pg||null; if(!F.cartao) F.parc=1; desenhaSheet(); });
-  $$("[data-ab]").forEach(b=>b.onclick=()=>{ F.aberto=b.dataset.ab==="1"; if(F.aberto){ F.cartao=null; F.parc=1; F.pago=null; F.dc=null; } desenhaSheet(); });
+  $$("[data-pg]").forEach(b=>b.onclick=()=>{ F.cartao=b.dataset.pg||null; F.ben=null; if(!F.cartao) F.parc=1; desenhaSheet(); });
+  $$("[data-bn]").forEach(b=>b.onclick=()=>{ F.ben=b.dataset.bn||null; F.cartao=null; F.parc=1; if(F.ben&&F.tipo==="receita"&&(!F.cat||F.cat==="recebido")) F.cat="beneficio"; desenhaSheet(); });
+  $$("[data-ab]").forEach(b=>b.onclick=()=>{ F.aberto=b.dataset.ab==="1"; if(F.aberto){ F.cartao=null; F.ben=null; F.parc=1; F.pago=null; F.dc=null; } desenhaSheet(); });
   $$("[data-mt]").forEach(b=>b.onclick=()=>{ F.meta=b.dataset.mt||null; desenhaSheet(); });
   const ps=$("#parcSel"); if(ps) ps.onchange=()=>{ F.parc=+ps.value; desenhaSheet(); };
   // data
@@ -1507,7 +1565,7 @@ $("#salvar").onclick=()=>{
     for(let i=0;i<n;i++){ const vi=i===n-1?Math.round((v-base*(n-1))*100)/100:base;
       criados.push(addTx({d:addDiaMes(F.d,i),v:vi,tipo:"gasto",cat:catId,desc:(desc||cat(catId).nome)+" ("+(i+1)+"/"+n+")",nota:F.nota,cartao:cartaoId,grp,pi:i+1,pn:n})); }
   } else {
-    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn,rid:F.rid,o:F.o||undefined,aberto:aberto||null,pago:pago,dc:pago&&pago.de==="cartao"&&cartaoId===pago.cartao?F.dc:null}));
+    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn,rid:F.rid,o:F.o||undefined,ben:(F.tipo==="receita"||(F.tipo==="gasto"&&!aberto&&!cartaoId))?F.ben:null,aberto:aberto||null,pago:pago,dc:pago&&pago.de==="cartao"&&cartaoId===pago.cartao?F.dc:null}));
   }
   if($("#repetir").checked && !F.id){
     S.rec.push({id:uid(),desc:desc||cat(catId).nome,v:Math.abs(v),tipo:F.tipo,cat:catId,dia:+F.d.slice(8),auto:true,ult:F.d.slice(0,7),cartao:cartaoId}); marcar("cfg");
