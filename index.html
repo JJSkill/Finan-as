@@ -611,7 +611,7 @@ async function conectaNuvem(){
 /* ---------- lançamentos ---------- */
 function addTx(t){
   const m=t.d.slice(0,7);
-  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote","aberto","pago","dc"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
+  const tx={id:uid(),d:t.d,v:Math.round(t.v*100)/100,tipo:t.tipo,cat:t.cat,desc:t.desc||"",o:t.o||"manual"}; for(const k of ["nota","cartao","grp","pi","pn","meta","ref","lote","aberto","pago","dc","rid"]) if(t[k]!=null&&t[k]!=="") tx[k]=t[k];
   txsMes(m).push(tx); marcar("m-"+m); return tx;
 }
 function delTx(id){
@@ -674,7 +674,7 @@ function rodaRecorrentes(){
   const m=ym(new Date()), dia=new Date().getDate(); let n=0;
   for(const r of S.rec){
     if(r.auto && (r.ult||"")<m && dia>=Math.min(r.dia,diasNoMes(m))){
-      addTx({d:m+"-"+pad(Math.min(r.dia,diasNoMes(m))),v:r.v,tipo:r.tipo,cat:r.cat,desc:r.desc,o:"auto",cartao:r.cartao}); r.ult=m; n++;
+      addTx({d:m+"-"+pad(Math.min(r.dia,diasNoMes(m))),v:r.v,tipo:r.tipo,cat:r.cat,desc:r.desc,o:"auto",cartao:r.cartao,rid:r.id}); r.ult=m; n++;
     }
   }
   if(n){ marcar("cfg"); toast(n+" conta(s) fixa(s) lançada(s) automaticamente"); }
@@ -757,6 +757,21 @@ function irHTML(m){
     <div class="kv"><span>Projeção para o ano</span><b>${fmt(i.proj)}</b></div>
     ${i.proj>33000?`<div class="alert warn">📋 <div><b>Você provavelmente vai precisar entregar a declaração</b> em ${+y+1}: rendimentos tributáveis acima de cerca de R$ 35 mil no ano obrigam a declarar (confira o limite oficial quando a Receita publicar as regras).</div></div>`:""}
     <p class="small muted" style="margin:8px 0 0">Conta como tributável: salário, aluguel recebido e renda extra. Rateio de contas e Pix de reembolso não são renda. Isto é um aviso para você se organizar, não substitui um contador.</p>`;
+}
+function formRecebi(x){
+  const m=ym(new Date()), dd=m+"-"+pad(Math.min(x.dia,diasNoMes(m)));
+  abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--good)">CONFIRMAR RECEBIMENTO</h3>
+    <p class="muted small" style="margin:0">${cat(x.cat).e} ${esc(x.desc||cat(x.cat).nome)} · previsto ${fmt(x.v)} no dia ${x.dia}</p>
+    <label class="f">Quanto caiu de verdade</label><input id="frbV" inputmode="decimal" value="${x.v.toLocaleString("pt-BR",{minimumFractionDigits:2})}">
+    <label class="f">Dia em que caiu</label><input id="frbD" type="date" value="${hoje()}">
+    <label class="small muted" style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="frbFixo" style="width:auto"> Usar esse valor como previsto nos próximos meses</label>
+    <p class="small muted">Sem marcar, muda só este mês. O valor fixo continua ${fmt(x.v)}.</p>
+    <div class="grid2"><button class="btn ghost" id="frbX">Cancelar</button><button class="btn" id="frbS">Confirmar</button></div>`);
+  $("#frbX").onclick=fechaForm;
+  $("#frbS").onclick=()=>{ const v=parseValor($("#frbV").value); if(!(v>0)) return; const d=$("#frbD").value||hoje();
+    const tx=addTx({d,v,tipo:"receita",cat:x.cat,desc:x.desc,o:"rec",rid:x.id}); const antes={ult:x.ult,v:x.v};
+    x.ult=d.slice(0,7)>m?d.slice(0,7):m; if($("#frbFixo").checked) x.v=Math.round(v*100)/100; marcar("cfg");
+    fechaForm(); render(); toast("Recebido ✓ "+fmt(v),"Desfazer",()=>{ delTx(tx.id); x.ult=antes.ult; x.v=antes.v; marcar("cfg"); render(); }); };
 }
 /* ---------- contas a pagar ---------- */
 function achaTx(id){ for(const m in S.txs){ const t=S.txs[m].find(x=>x.id===id); if(t) return t; } return null; }
@@ -919,9 +934,10 @@ function renderInicio(){
   $("#recCard").classList.toggle("hide",!rr.length);
   { const nm=MESES[+m.slice(5)-1], pm=addMes(m,-1), recPrev=(S.txs[pm]||[]).filter(t=>t.tipo==="receita").reduce((a,t)=>a+t.v,0);
     $("#recTit").textContent="Previsão de "+nm;
-    $("#recSub").innerHTML="Seus recebimentos fixos que ainda vão cair em "+nm+"."+(recPrev?` O que você recebeu em ${MESES[+pm.slice(5)-1]} (${fmt(recPrev)}) fica em ${MESES[+pm.slice(5)-1]}: toque em ‹ no topo para ver.`:""); }
-  $("#recHome").innerHTML=rr.map(x=>{ const ok=(x.ult||"")>=m; return `<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>dia ${x.dia} · ${fmt(x.v)}</small></div>${ok?`<span class="st paga">Recebido</span>`:x.auto?`<span class="st aberta">Previsto dia ${x.dia}</span>`:`<button class="btn sm" data-ok="${x.id}">Recebi</button>`}</div>`; }).join("")
-    + (rr.length?`<div class="kv" style="margin-top:6px"><span>Total previsto</span><b>${fmt(rr.reduce((a,x)=>a+x.v,0))}</b></div>`:"");
+    $("#recSub").innerHTML="Seus recebimentos fixos de "+nm+". Quando cair, toque em Recebi e confirme o valor (pode ser diferente do previsto)."+(recPrev?` O que você recebeu em ${MESES[+pm.slice(5)-1]} (${fmt(recPrev)}) fica em ${MESES[+pm.slice(5)-1]}: toque em ‹ no topo para ver.`:""); }
+  const txRec=x=>{ const l=(S.txs[m]||[]).filter(t=>t.tipo==="receita"&&(t.o==="auto"||t.o==="rec")); return l.find(t=>t.rid===x.id)||l.find(t=>!t.rid&&t.desc===x.desc&&Math.abs(t.v-x.v)<.01); };
+  $("#recHome").innerHTML=rr.map(x=>{ const ok=(x.ult||"")>=m, tx=ok?txRec(x):null; return `<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>dia ${x.dia} · ${tx&&Math.abs(tx.v-x.v)>=.01?`recebeu <b style="color:var(--good)">${fmt(tx.v)}</b> (previsto ${fmt(x.v)})`:fmt(x.v)}</small></div>${ok?(tx?`<button class="st paga" data-rtx="${tx.id}" style="cursor:pointer">Recebido ✎</button>`:`<span class="st paga">Recebido</span>`):`<button class="btn sm" data-rcb="${x.id}">Recebi</button>`}</div>`; }).join("")
+    + (rr.length?`<div class="kv" style="margin-top:6px"><span>Total do mês</span><b>${fmt(rr.reduce((a,x)=>{ const t=(x.ult||"")>=m?txRec(x):null; return a+(t?t.v:x.v); },0))}</b></div>`:"");
   if(atual){ const ir=infoIR(m); if(ir.faixa!=="isento") a+=`<div class="alert ${ir.faixa==="parcial"?"warn":"bad"}">🧾 <div><b>Renda tributável do mês: ${fmt(ir.v)}.</b> Passou de R$ 5 mil: ${ir.faixa==="parcial"?"pode ter imposto de renda (isenção parcial até R$ 7.350)":"tem imposto de renda pela tabela normal"}. Veja em Plano.</div></div>`;
     if(ir.alug && new Date().getDate()>=20) a+=`<div class="alert info">🏘️ <div><b>Lembrete do carnê-leão:</b> o imposto sobre aluguel recebido de pessoa física deste mês vence no último dia útil do mês que vem.</div></div>`; }
   $("#alerts").innerHTML=a;
@@ -930,6 +946,8 @@ function renderInicio(){
   const p = atual?pendentes().filter(x=>x.tipo!=="receita"):[];
   $("#pendCard").classList.toggle("hide",!p.length);
   $("#pend").innerHTML=p.map(x=>`<div class="pend"><span style="font-size:20px">${cat(x.cat).e}</span><div class="t">${esc(x.desc||cat(x.cat).nome)}<small>dia ${x.dia} · ${fmt(x.v)}</small></div><button class="btn sm" data-ok="${x.id}">${x.tipo==="receita"?"Recebi":"Paguei"}</button><button class="btn sm ghost" data-skip="${x.id}">Pular</button></div>`).join("");
+  $$("[data-rcb]").forEach(b=>b.onclick=()=>formRecebi(S.rec.find(r=>r.id===b.dataset.rcb)));
+  $$("[data-rtx]").forEach(b=>b.onclick=()=>abreSheet(achaTx(b.dataset.rtx)));
   $$("[data-ok]").forEach(b=>b.onclick=()=>{ const x=S.rec.find(r=>r.id===b.dataset.ok); const m=ym(new Date()); addTx({d:hoje(),v:x.v,tipo:x.tipo,cat:x.cat,desc:x.desc,o:"rec"}); x.ult=m; marcar("cfg"); toast("Lançado ✓"); render(); });
   $$("[data-skip]").forEach(b=>b.onclick=()=>{ const x=S.rec.find(r=>r.id===b.dataset.skip); x.ult=ym(new Date()); marcar("cfg"); render(); });
 
@@ -1344,7 +1362,7 @@ function atalhos(){
 function abreSheet(t){
   t=t||{};
   if(t.tipo==="pagfat"){ const c=cartao(t.cartao); abreForm(`<h3 style="margin:4px 0 8px;font-family:Orbitron;font-size:12px;letter-spacing:.16em;color:var(--accent)">PAGAMENTO DE FATURA</h3><p>${esc(t.desc)} · ${fmt(t.v)} em ${dataBR(t.d)}</p><div class="grid2"><button class="btn ghost" id="pfX">Fechar</button><button class="btn danger" id="pfD">Excluir</button></div>`); $("#pfX").onclick=fechaForm; armaApagar($("#pfD"),()=>{ const x=delTx(t.id); fechaForm(); render(); toast("Excluído","Desfazer",()=>{devolve([x]);render();}); }); return; }
-  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, aberto:!!t.aberto, pago:t.pago||null, dc:t.dc||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
+  $("#notaBox").innerHTML=""; F={nota:t.nota||null, id:t.id||null, tipo:t.tipo||"gasto", cents:Math.round(Math.abs(t.v||0)*100), cat:t.cat||null, desc:t.desc||"", d:t.d||hoje(), cartao:t.cartao||null, parc:1, meta:t.meta||null, grp:t.grp||null, pi:t.pi||null, pn:t.pn||null, rid:t.rid||null, o:t.o||null, aberto:!!t.aberto, pago:t.pago||null, dc:t.dc||null, tirar:!!t.tirar||(t.tipo==="reserva"&&t.v<0)};
   $("#desc").value=F.desc; $("#repetir").checked=false;
   $("#repetir").parentElement.classList.toggle("hide",!!F.id);
   $("#excluir").classList.toggle("hide",!F.id);
@@ -1438,7 +1456,7 @@ $("#salvar").onclick=()=>{
     for(let i=0;i<n;i++){ const vi=i===n-1?Math.round((v-base*(n-1))*100)/100:base;
       criados.push(addTx({d:addDiaMes(F.d,i),v:vi,tipo:"gasto",cat:catId,desc:(desc||cat(catId).nome)+" ("+(i+1)+"/"+n+")",nota:F.nota,cartao:cartaoId,grp,pi:i+1,pn:n})); }
   } else {
-    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn,aberto:aberto||null,pago:pago,dc:pago&&pago.de==="cartao"&&cartaoId===pago.cartao?F.dc:null}));
+    criados.push(addTx({d:F.d,v,tipo:F.tipo,cat:catId,desc,nota:F.nota,cartao:cartaoId,meta:metaId,grp:F.grp,pi:F.pi,pn:F.pn,rid:F.rid,o:F.o||undefined,aberto:aberto||null,pago:pago,dc:pago&&pago.de==="cartao"&&cartaoId===pago.cartao?F.dc:null}));
   }
   if($("#repetir").checked && !F.id){
     S.rec.push({id:uid(),desc:desc||cat(catId).nome,v:Math.abs(v),tipo:F.tipo,cat:catId,dia:+F.d.slice(8),auto:true,ult:F.d.slice(0,7),cartao:cartaoId}); marcar("cfg");
