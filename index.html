@@ -880,7 +880,10 @@ function formSaldo(){
     <p class="small muted" style="margin:6px 0 0">Hoje = o saldo de agora. Outro dia = o saldo no <b>começo</b> desse dia, antes de qualquer lançamento dele (bom para começar do primeiro dia do extrato e bater mês a mês).</p>
     <div class="grid2" style="margin-top:14px"><button class="btn ghost" id="fsX">Cancelar</button><button class="btn" id="fsS">Salvar</button></div>`);
   $("#fsX").onclick=fechaForm;
-  $("#fsS").onclick=()=>{ const raw=$("#fsV").value.trim(); if(!raw) return; const v=parseValor(raw.replace(/^-\s*/,""))*(/^-/.test(raw)?-1:1); if(isNaN(v)) return;
+  $("#fsS").onclick=()=>{ const raw=$("#fsV").value.trim(); if(!raw) return;
+    const so=raw.replace(/[^\d]/g,"");
+    if(/\d{1,2}\/\d{1,2}/.test(raw) || (!/,/.test(raw) && so.length>=7)){ $("#fsV").style.borderColor="var(--bad)"; toast("Isso parece uma data. Aqui vai só o valor (ex.: 0,96). A data vai no campo de baixo."); return; }
+    const v=parseValor(raw.replace(/^-\s*/,""))*(/^-/.test(raw)?-1:1); if(isNaN(v)) return;
     const d=$("#fsD").value||hoje(); S.cfg.saldo={v,d,ign:d===hoje()?todasTx().filter(t=>t.d===d).map(t=>t.id):[]}; marcar("cfg"); fechaForm(); render(); toast("Saldo atualizado ✓"); };
 }
 function renderSaldos(){
